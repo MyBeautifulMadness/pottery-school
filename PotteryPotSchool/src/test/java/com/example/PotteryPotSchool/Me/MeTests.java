@@ -1,9 +1,12 @@
 package com.example.PotteryPotSchool.Me;
 
+import com.example.PotteryPotSchool.dto.Profiles.Profile;
 import com.example.PotteryPotSchool.dto.Users.User;
+import com.example.PotteryPotSchool.entity.Profiles.ProfileEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.exception.NotFoundException;
+import com.example.PotteryPotSchool.repository.ProfileRepository;
 import com.example.PotteryPotSchool.repository.UserRepository;
 import com.example.PotteryPotSchool.security.CurrentUserProvider;
 import com.example.PotteryPotSchool.service.Me.Impl.MeServiceImpl;
@@ -26,6 +29,9 @@ public class MeTests {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ProfileRepository profileRepository;
 
     @Mock
     private CurrentUserProvider currentUserProvider;
@@ -84,7 +90,7 @@ public class MeTests {
 
         assertThat(response.getUserId()).isEqualTo(currentUserId);
         assertThat(response.getFullName()).isEqualTo("KERRIGAN");
-        assertThat(response.getAbout()).isEqualTo("Soldier of Cola");
+        assertThat(response.getAbout()).isEqualTo("Soldier Of Cola");
     }
 
     @Test

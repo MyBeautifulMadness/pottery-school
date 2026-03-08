@@ -1,5 +1,6 @@
 package com.example.PotteryPotSchool.controller;
 
+import com.example.PotteryPotSchool.dto.Profiles.Profile;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.service.Me.MeService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,5 +19,10 @@ public class MeController {
     @GetMapping
     public User getMe() {
         return meService.getMe();
+    }
+
+    @GetMapping("/profile")
+    public Profile getMyProfile() {
+        return meService.getMyProfile();
     }
 }
