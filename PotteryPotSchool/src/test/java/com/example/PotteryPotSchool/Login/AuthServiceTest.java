@@ -1,14 +1,15 @@
 package com.example.PotteryPotSchool.Login;
 
 
+import com.example.PotteryPotSchool.dto.Login.LoginRequest;
+import com.example.PotteryPotSchool.dto.Login.LoginResponse;
+import com.example.PotteryPotSchool.entity.Users.UserEntity;
+import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.repository.UserRepository;
-import com.example.model.LoginRequest;
-import com.example.model.LoginResponse;
-import com.example.model.User;
-import com.example.service.AuthService;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.example.PotteryPotSchool.service.Login.impl.AuthServiceImpl;
+import com.example.PotteryPotSchool.service.Login.impl.JwtServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -28,10 +29,10 @@ class AuthServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private JwtService jwtService;
+    private JwtServiceImpl jwtService;
 
     @InjectMocks
-    private AuthService authService;
+    private AuthServiceImpl authService;
 
     @Test
     void login_success_returnsTokenAndUser() {
@@ -40,11 +41,11 @@ class AuthServiceTest {
         request.setEmail("student@test.com");
         request.setPassword("password");
 
-        User user = new User();
+        UserEntity user = new UserEntity();
         user.setId(UUID.randomUUID());
         user.setEmail("student@test.com");
         user.setPassword("password");
-        user.setRole("STUDENT");
+        user.setRole(Role.STUDENT);
 
         Mockito.when(userRepository.findByEmail("student@test.com"))
                 .thenReturn(Optional.of(user));
@@ -52,12 +53,13 @@ class AuthServiceTest {
         Mockito.when(jwtService.generateToken(user))
                 .thenReturn("jwt-token");
 
+
         LoginResponse response = authService.login(request);
 
         assertNotNull(response);
         assertEquals("jwt-token", response.getAccessToken());
         assertEquals("student@test.com", response.getUser().getEmail());
-        assertEquals("STUDENT", response.getUser().getRole());
+        assertEquals(Role.STUDENT, response.getUser().getRole());
     }
 
     @Test
@@ -115,17 +117,14 @@ class AuthServiceTest {
         request.setEmail("student@test.com");
         request.setPassword("wrongPassword");
 
-        User user = new User();
+        UserEntity user = new UserEntity();
         user.setId(UUID.randomUUID());
         user.setEmail("student@test.com");
         user.setPassword("encodedPassword");
-        user.setRole("STUDENT");
+        user.setRole(Role.STUDENT);
 
         Mockito.when(userRepository.findByEmail("student@test.com"))
                 .thenReturn(Optional.of(user));
-
-        Mockito.when(passwordEncoder.matches("wrongPassword", "encodedPassword"))
-                .thenReturn(false);
 
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> authService.login(request));

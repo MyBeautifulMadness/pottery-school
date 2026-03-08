@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Data
-@Table(name = "User")
+@Table(name = "users")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -23,6 +23,8 @@ public class UserEntity {
     private UUID id;
 
     private String email;
+
+    private String password;
 
     @Enumerated(EnumType.STRING)
     private Role role;
