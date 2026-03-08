@@ -2,6 +2,7 @@ package com.example.PotteryPotSchool.service.Post.impl;
 
 import com.example.PotteryPotSchool.config.BadRequestException;
 import com.example.PotteryPotSchool.config.ForbiddenException;
+import com.example.PotteryPotSchool.config.NotFoundException;
 import com.example.PotteryPotSchool.dto.Posts.*;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Posts.MaterialEntity;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -56,6 +58,20 @@ public class PostServiceImpl implements PostService {
 
         PostEntity savedPost = postRepository.save(post);
         return mapToPostDetails(savedPost);
+    }
+
+    @Override
+    public void delete(UUID postId) {
+        User currentUser = meService.getMe();
+
+        if (currentUser.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Только учителя могут удалять пост");
+        }
+
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new NotFoundException("Пост не найден: " + postId));
+
+        postRepository.delete(post);
     }
 
     private void validateCreateRequest(PostCreateRequest request) {
