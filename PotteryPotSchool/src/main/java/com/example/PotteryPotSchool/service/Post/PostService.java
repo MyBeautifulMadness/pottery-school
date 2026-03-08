@@ -1,4 +1,4 @@
-package com.example.PotteryPotSchool.service;
+package com.example.PotteryPotSchool.service.Post;
 
 import com.example.PotteryPotSchool.dto.Posts.PostCreateRequest;
 import com.example.PotteryPotSchool.dto.Posts.PostDetails;

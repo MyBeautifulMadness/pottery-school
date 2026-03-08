@@ -7,16 +7,17 @@ import com.example.PotteryPotSchool.dto.Posts.MaterialCreateRequest;
 import com.example.PotteryPotSchool.dto.Posts.PostCreateRequest;
 import com.example.PotteryPotSchool.dto.Posts.PostDetails;
 import com.example.PotteryPotSchool.dto.Posts.TaskCreateRequest;
+import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Posts.MaterialEntity;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.entity.Posts.TaskEntity;
-import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Posts.MaterialType;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
 import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.repository.PostRepository;
-import com.example.PotteryPotSchool.service.MeService;
-import com.example.PotteryPotSchool.service.PostService;
+import com.example.PotteryPotSchool.service.Me.MeService;
+import com.example.PotteryPotSchool.service.Post.PostService;
+import com.example.PotteryPotSchool.service.Post.impl.PostServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -40,7 +41,7 @@ public class CreatePostServiceTest {
     private MeService meService;
 
     @InjectMocks
-    private PostService postService;
+    private PostServiceImpl postService;
 
     @Test
     void shouldCreateMaterialPostWhenUserIsTeacher() {
@@ -56,7 +57,7 @@ public class CreatePostServiceTest {
         materialRequest.setText("Сам материал");
         request.setMaterial(materialRequest);
 
-        UserEntity teacher = UserEntity.builder().id(UUID.randomUUID()).email("teacher@lol.com").role(Role.TEACHER).build();
+        User teacher = User.builder().id(UUID.randomUUID()).email("teacher@lol.com").role(Role.TEACHER).build();
 
         when(meService.getMe()).thenReturn(teacher);
 
@@ -123,7 +124,7 @@ public class CreatePostServiceTest {
         taskRequest.setDeadline(LocalDateTime.of(2026, 3, 15, 18, 0));
         request.setTask(taskRequest);
 
-        UserEntity teacher = UserEntity.builder().id(UUID.randomUUID()).email("teacher@lol.com").role(Role.TEACHER).build();
+        User teacher = User.builder().id(UUID.randomUUID()).email("teacher@lol.com").role(Role.TEACHER).build();
 
         when(meService.getMe()).thenReturn(teacher);
 
@@ -194,7 +195,7 @@ public class CreatePostServiceTest {
         request.setType(PostType.MATERIAL);
         request.setTitle("Супер название");
 
-        UserEntity student = UserEntity.builder()
+        User student = User.builder()
                 .id(UUID.randomUUID())
                 .email("student@lol.com")
                 .role(Role.STUDENT)
@@ -216,7 +217,7 @@ public class CreatePostServiceTest {
         taskRequest.setDescription("чтото...");
         request.setTask(taskRequest);
 
-        UserEntity teacher = UserEntity.builder()
+        User teacher = User.builder()
                 .id(UUID.randomUUID())
                 .email("teacher@lol.com")
                 .role(Role.TEACHER)
@@ -241,7 +242,7 @@ public class CreatePostServiceTest {
         materialRequest.setUrl("http://url.com");
         request.setMaterial(materialRequest);
 
-        UserEntity teacher = UserEntity.builder()
+        User teacher = User.builder()
                 .id(UUID.randomUUID())
                 .email("teacher@lol.com")
                 .role(Role.TEACHER)
