@@ -68,4 +68,33 @@ public class MeTests {
                 .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("User not found");
     }
+
+    @Test
+    void getMyProfile_returnsProfile() {
+        ProfileEntity profile = ProfileEntity.builder()
+                .userId(currentUserId)
+                .fullName("KERRIGAN")
+                .about("Soldier Of Cola")
+                .build();
+
+        when(currentUserProvider.getCurrentUserId()).thenReturn(currentUserId);
+        when(profileRepository.findById(currentUserId)).thenReturn(Optional.of(profile));
+
+        Profile response = meService.getMyProfile();
+
+        assertThat(response.getUserId()).isEqualTo(currentUserId);
+        assertThat(response.getFullName()).isEqualTo("KERRIGAN");
+        assertThat(response.getAbout()).isEqualTo("Soldier of Cola");
+    }
+
+    @Test
+    void getMyProfile_throws_whenProfileNotFound() {
+
+        when(currentUserProvider.getCurrentUserId()).thenReturn(currentUserId);
+        when(profileRepository.findById(currentUserId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> meService.getMyProfile())
+                .isInstanceOf(NotFoundException.class)
+                .hasMessageContaining("Profile not found");
+    }
 }
