@@ -1,9 +1,9 @@
 package com.example.PotteryPotSchool.repository;
 
-import com.example.PotteryPotSchool.entity.Users.User;
+import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;
 
-public interface UserRepository extends JpaRepository<User, UUID> {
+public interface UserRepository extends JpaRepository<UserEntity, UUID> {
 }
