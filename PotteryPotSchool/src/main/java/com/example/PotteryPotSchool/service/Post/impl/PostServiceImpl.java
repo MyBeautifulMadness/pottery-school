@@ -14,9 +14,13 @@ import com.example.PotteryPotSchool.repository.PostRepository;
 import com.example.PotteryPotSchool.service.Me.MeService;
 import com.example.PotteryPotSchool.service.Post.PostService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -72,6 +76,32 @@ public class PostServiceImpl implements PostService {
                 .orElseThrow(() -> new NotFoundException("Пост не найден: " + postId));
 
         postRepository.delete(post);
+    }
+
+    @Override
+    public Paged<PostShortDetails> getPosts(PostType type, int page, int size) {
+        meService.getMe();
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<PostEntity> postPage;
+
+        if (type == null) {
+            postPage = postRepository.findAll(pageable);
+        } else {
+            postPage = postRepository.findAllByType(type, pageable);
+        }
+
+        List<PostShortDetails> items = postPage.getContent().stream()
+                .map(this::mapToPostShortDetails)
+                .toList();
+
+
+        return new Paged<>(
+                items,
+                page,
+                size,
+                postPage.getTotalElements()
+        );
     }
 
     private void validateCreateRequest(PostCreateRequest request) {
@@ -131,6 +161,17 @@ public class PostServiceImpl implements PostService {
             details.setTask(taskDetails);
         }
 
+        return details;
+    }
+
+    private PostShortDetails mapToPostShortDetails(PostEntity post) {
+        PostShortDetails details = new PostShortDetails();
+        details.setId(post.getId());
+        details.setType(post.getType());
+        details.setTitle(post.getTitle());
+        details.setDescription(post.getDescription());
+        details.setCreatedAt(post.getCreatedAt());
+        details.setUpdatedAt(post.getUpdatedAt());
         return details;
     }
 }

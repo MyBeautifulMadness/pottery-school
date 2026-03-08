@@ -117,7 +117,7 @@ public class GetPostsServiceTest {
                 .build();
 
         Pageable pageable = PageRequest.of(1, 3);
-        Page<PostEntity> postPage = new PageImpl<>(List.of(post), pageable, 1);
+        Page<PostEntity> postPage = new PageImpl<>(List.of(post), pageable, 4);
 
         when(postRepository.findAllByType(PostType.MATERIAL, pageable)).thenReturn(postPage);
 
@@ -126,7 +126,7 @@ public class GetPostsServiceTest {
         assertNotNull(result);
         assertEquals(1, result.getPage());
         assertEquals(3, result.getSize());
-        assertEquals(1, result.getTotal());
+        assertEquals(4, result.getTotal());
         assertEquals(1, result.getItems().size());
 
         PostShortDetails item = result.getItems().get(0);
