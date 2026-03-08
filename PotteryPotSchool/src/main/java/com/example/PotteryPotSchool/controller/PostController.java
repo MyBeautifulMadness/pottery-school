@@ -40,4 +40,9 @@ public class PostController {
     ) {
         return postService.getPosts(type, page, size);
     }
+
+    @GetMapping("/{postId}")
+    public PostDetails getPostById(@PathVariable UUID postId) {
+        return postService.getById(postId);
+    }
 }

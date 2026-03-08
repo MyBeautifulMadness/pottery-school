@@ -1,5 +1,6 @@
 package com.example.PotteryPotSchool.Posts;
 
+import com.example.PotteryPotSchool.config.NotFoundException;
 import com.example.PotteryPotSchool.config.UnauthorizedException;
 import com.example.PotteryPotSchool.dto.Posts.PostDetails;
 import com.example.PotteryPotSchool.dto.Users.User;
@@ -171,7 +172,7 @@ public class GetPostByIdServiceTest {
 
         when(meService.getMe()).thenReturn(student);
         when(postRepository.findById(postId)).thenReturn(Optional.empty());
-        assertThrows(ChangeSetPersister.NotFoundException.class, () -> getPostByIdService.getById(postId));
+        assertThrows(NotFoundException.class, () -> getPostByIdService.getById(postId));
 
         verify(meService).getMe();
         verify(postRepository).findById(postId);

@@ -104,6 +104,16 @@ public class PostServiceImpl implements PostService {
         );
     }
 
+    @Override
+    public PostDetails getById(UUID postId) {
+        meService.getMe();
+
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new NotFoundException("Пост не найден: " + postId));
+
+        return mapToPostDetails(post);
+    }
+
     private void validateCreateRequest(PostCreateRequest request) {
         if (request.getType() == PostType.MATERIAL) {
             if (request.getMaterial() == null || request.getTask() != null) {
