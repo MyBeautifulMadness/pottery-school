@@ -114,6 +114,49 @@ public class PostServiceImpl implements PostService {
         return mapToPostDetails(post);
     }
 
+    @Override
+    public PostDetails update(UUID postId, PostUpdateRequest request) {
+        User currentUser = meService.getMe();
+
+        if (currentUser.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Только учителя могут изменять пост");
+        }
+
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new NotFoundException("Пост не найден: " + postId));
+
+        post.setTitle(request.getTitle());
+        post.setDescription(request.getDescription());
+
+        if (post.getType() == PostType.MATERIAL) {
+            if (request.getTask() != null) {
+                throw new BadRequestException("Вы не можете изменить task для MATERIAL поста");
+            }
+
+            if (request.getMaterial() != null) {
+                post.getMaterial().setTitle(request.getMaterial().getTitle());
+                post.getMaterial().setUrl(request.getMaterial().getUrl());
+                post.getMaterial().setText(request.getMaterial().getText());
+            }
+        }
+
+        if (post.getType() == PostType.TASK) {
+            if (request.getMaterial() != null) {
+                throw new BadRequestException("Вы не можете изменить material для TASK поста");
+            }
+
+            if (request.getTask() != null) {
+                post.getTask().setDescription(request.getTask().getDescription());
+                post.getTask().setDeadline(request.getTask().getDeadline());
+            }
+        }
+
+        post.setUpdatedAt(LocalDateTime.now());
+
+        PostEntity savedPost = postRepository.save(post);
+        return mapToPostDetails(savedPost);
+    }
+
     private void validateCreateRequest(PostCreateRequest request) {
         if (request.getType() == PostType.MATERIAL) {
             if (request.getMaterial() == null || request.getTask() != null) {

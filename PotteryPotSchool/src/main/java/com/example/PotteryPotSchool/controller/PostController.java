@@ -1,11 +1,9 @@
 package com.example.PotteryPotSchool.controller;
 
-import com.example.PotteryPotSchool.dto.Posts.Paged;
-import com.example.PotteryPotSchool.dto.Posts.PostCreateRequest;
-import com.example.PotteryPotSchool.dto.Posts.PostDetails;
-import com.example.PotteryPotSchool.dto.Posts.PostShortDetails;
+import com.example.PotteryPotSchool.dto.Posts.*;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
 import com.example.PotteryPotSchool.service.Post.PostService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,17 +20,20 @@ public class PostController {
 
     @PostMapping()
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Создать пост (преподаватель)")
     public PostDetails createPost(@RequestBody PostCreateRequest request) {
         return postService.createPost(request);
     }
 
     @DeleteMapping("/{postId}")
+    @Operation(summary = "Удалить пост (преподаватель)")
     public ResponseEntity<Void> deletePost(@PathVariable UUID postId) {
         postService.delete(postId);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping
+    @Operation(summary = "Список постов (лента)")
     public Paged<PostShortDetails> getPosts(
             @RequestParam(required = false) PostType type,
             @RequestParam(defaultValue = "0") int page,
@@ -42,7 +43,15 @@ public class PostController {
     }
 
     @GetMapping("/{postId}")
+    @Operation(summary = "Просмотр поста")
     public PostDetails getPostById(@PathVariable UUID postId) {
         return postService.getById(postId);
+    }
+
+    @PatchMapping("/{postId}")
+    @Operation(summary = "Редактировать пост (преподаватель)")
+    public PostDetails updatePost(@PathVariable UUID postId,
+                                  @RequestBody PostUpdateRequest request) {
+        return postService.update(postId, request);
     }
 }
