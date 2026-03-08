@@ -1,6 +1,7 @@
 package com.example.PotteryPotSchool.service.Me.Impl;
 
 import com.example.PotteryPotSchool.dto.Profiles.Profile;
+import com.example.PotteryPotSchool.dto.Profiles.ProfileUpdateRequest;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Profiles.ProfileEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
@@ -50,6 +51,26 @@ public class MeServiceImpl implements MeService {
                 profile.getUserId(),
                 profile.getFullName(),
                 profile.getAbout()
+        );
+    }
+
+    @Override
+    @Transactional
+    public Profile updateMyProfile(ProfileUpdateRequest request) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+
+        ProfileEntity profile = profileRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Profile not found for user: " + userId));
+
+        profile.setFullName(request.getFullName());
+        profile.setAbout(request.getAbout());
+
+        ProfileEntity saved = profileRepository.save(profile);
+
+        return new Profile(
+                saved.getUserId(),
+                saved.getFullName(),
+                saved.getAbout()
         );
     }
 
