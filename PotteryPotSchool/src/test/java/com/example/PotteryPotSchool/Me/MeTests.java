@@ -1,6 +1,7 @@
 package com.example.PotteryPotSchool.Me;
 
 import com.example.PotteryPotSchool.dto.Profiles.Profile;
+import com.example.PotteryPotSchool.dto.Profiles.ProfileUpdateRequest;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Profiles.ProfileEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
@@ -22,6 +23,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -100,6 +102,44 @@ public class MeTests {
         when(profileRepository.findById(currentUserId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> meService.getMyProfile())
+                .isInstanceOf(NotFoundException.class)
+                .hasMessageContaining("Profile not found");
+    }
+
+    @Test
+    void updateMyProfile_updatesProfile() {
+        ProfileEntity existing = ProfileEntity.builder()
+                .userId(currentUserId)
+                .fullName("Old Name")
+                .about("old about")
+                .build();
+
+        ProfileUpdateRequest request = new ProfileUpdateRequest();
+                request.setFullName("New Name");
+                request.setAbout("new about");
+
+        when(currentUserProvider.getCurrentUserId()).thenReturn(currentUserId);
+        when(profileRepository.findById(currentUserId)).thenReturn(Optional.of(existing));
+        when(profileRepository.save(any(ProfileEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Profile response = meService.updateMyProfile(request);
+
+        assertThat(response.getUserId()).isEqualTo(currentUserId);
+        assertThat(response.getFullName()).isEqualTo("New Name");
+        assertThat(response.getAbout()).isEqualTo("new about");
+    }
+
+    @Test
+    void updateMyProfile_throws_whenProfileNotFound() {
+
+        ProfileUpdateRequest request = new ProfileUpdateRequest();
+        request.setFullName("New Name");
+        request.setAbout("new about");
+
+        when(currentUserProvider.getCurrentUserId()).thenReturn(currentUserId);
+        when(profileRepository.findById(currentUserId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> meService.updateMyProfile(request))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Profile not found");
     }
