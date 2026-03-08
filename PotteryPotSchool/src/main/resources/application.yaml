@@ -1,18 +1,20 @@
 spring:
   application:
     name: PotteryPotSchool
+
   datasource:
     url: jdbc:postgresql://localhost:5432/potterypotschooldb
     username: postgres
-    password: 3141
-    jpa:
-      hibernate:
-        ddl-auto: update
-      show-sql: true
-      properties:
-        hibernate:
-          format_sql: true
-      database-platform: org.hibernate.dialect.PostgreSQLDialect
+    password: WEyfvb56.
 
-  server:
-    port: 8080
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+server:
+  port: 8080
