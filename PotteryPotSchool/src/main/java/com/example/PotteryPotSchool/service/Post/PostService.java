@@ -12,4 +12,5 @@ public interface PostService {
     PostDetails createPost(PostCreateRequest request);
     void delete(UUID postId);
     Paged<PostShortDetails> getPosts(PostType type, int page, int size);
+    PostDetails getById(UUID postId);
 }
