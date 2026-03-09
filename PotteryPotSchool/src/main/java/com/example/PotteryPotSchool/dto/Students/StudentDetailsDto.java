@@ -1,5 +1,6 @@
 package com.example.PotteryPotSchool.dto.Students;
 
+import com.example.PotteryPotSchool.dto.Profiles.Profile;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -10,9 +11,6 @@ import java.util.UUID;
 public class StudentDetailsDto {
 
     private UUID id;
-
-    private String fullName;
-    private String email;
-    private String about;
+    private Profile profile;
 
 }

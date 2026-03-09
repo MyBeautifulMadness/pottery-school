@@ -1,13 +1,16 @@
 package com.example.PotteryPotSchool.service.Students.impl;
 
 import com.example.PotteryPotSchool.config.NotFoundException;
+import com.example.PotteryPotSchool.dto.Profiles.Profile;
 import com.example.PotteryPotSchool.dto.Students.StudentDetailsDto;
 import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
+import com.example.PotteryPotSchool.entity.Profiles.ProfileEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.config.BadRequestException;
 import com.example.PotteryPotSchool.config.ForbiddenException;
 import com.example.PotteryPotSchool.config.UnauthorizedException;
+import com.example.PotteryPotSchool.repository.ProfileRepository;
 import com.example.PotteryPotSchool.repository.UserRepository;
 import com.example.PotteryPotSchool.service.Login.JwtService;
 import com.example.PotteryPotSchool.security.UserPrincipal;
@@ -25,6 +28,7 @@ public class StudentServiceImpl implements StudentService {
 
     private final UserRepository userRepository;
     private final JwtService jwtService;
+    private final ProfileRepository profileRepository;
 
     @Override
     public List<StudentSummaryDto> getStudents(String token, String q, Integer page, Integer size) {
@@ -88,11 +92,19 @@ public class StudentServiceImpl implements StudentService {
                 .findByIdAndRole(studentId, Role.STUDENT)
                 .orElseThrow(() -> new NotFoundException("Student not found"));
 
+        ProfileEntity profileEntity = profileRepository
+                .findById(studentId)
+                .orElseThrow(() -> new NotFoundException("Profile not found"));
+
+        Profile profile = Profile.builder()
+                .userId(profileEntity.getUserId())
+                .fullName(profileEntity.getFullName())
+                .about(profileEntity.getAbout())
+                .build();
+
         return new StudentDetailsDto(
                 student.getId(),
-                student.getFullName(),
-                student.getEmail(),
-                student.getAbout()
+                profile
         );
     }
 }
