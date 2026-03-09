@@ -23,7 +23,7 @@ public class StudentController {
     @GetMapping()
     public PageResponse<StudentSummaryDto> getStudents(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String q,
             @PageableDefault Pageable pageable
     ) {
         String token = extractToken(authHeader);
@@ -32,7 +32,7 @@ public class StudentController {
             throw new BadRequestException("Invalid pagination parameters");
         }
 
-        return studentService.getStudents(token, query, pageable);
+        return studentService.getStudents(token, q, pageable);
     }
 
     @GetMapping("/{studentId}")
