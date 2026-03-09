@@ -2,6 +2,7 @@ package com.example.PotteryPotSchool.service.Students.impl;
 
 import com.example.PotteryPotSchool.config.NotFoundException;
 import com.example.PotteryPotSchool.dto.Profiles.Profile;
+import com.example.PotteryPotSchool.dto.Students.PageResponse;
 import com.example.PotteryPotSchool.dto.Students.StudentDetailsDto;
 import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
 import com.example.PotteryPotSchool.entity.Profiles.ProfileEntity;
@@ -16,6 +17,8 @@ import com.example.PotteryPotSchool.service.Login.JwtService;
 import com.example.PotteryPotSchool.security.UserPrincipal;
 import com.example.PotteryPotSchool.service.Students.StudentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -31,10 +34,14 @@ public class StudentServiceImpl implements StudentService {
     private final ProfileRepository profileRepository;
 
     @Override
-    public List<StudentSummaryDto> getStudents(String token, String q, Integer page, Integer size) {
+    public PageResponse<StudentSummaryDto> getStudents(
+            String token,
+            String query,
+            Pageable pageable
+    ) {
 
         if (token == null || !jwtService.isTokenValid(token)) {
-            throw new UnauthorizedException("Invalid or missing token");
+            throw new UnauthorizedException("Invalid token");
         }
 
         UserPrincipal principal = jwtService.extractUserPrincipal(token);
@@ -43,36 +50,20 @@ public class StudentServiceImpl implements StudentService {
             throw new ForbiddenException("Access denied");
         }
 
-        if (page < 0 || size <= 0 || size > 100) {
-            throw new BadRequestException("Invalid pagination parameters");
-        }
+        Page<StudentSummaryDto> page;
 
-        List<UserEntity> students;
-
-        if (q == null || q.isBlank()) {
-            students = userRepository.findByRole(Role.STUDENT);
+        if (query == null || query.isBlank()) {
+            page = userRepository.findStudents(pageable);
         } else {
-            students = userRepository
-                    .findByRoleAndFullNameContainingIgnoreCaseOrRoleAndEmailContainingIgnoreCase(
-                            Role.STUDENT, q,
-                            Role.STUDENT, q);
+            page = userRepository.searchStudents(query, pageable);
         }
 
-        int fromIndex = page * size;
-
-        if (fromIndex >= students.size()) {
-            return List.of();
-        }
-
-        int toIndex = Math.min(fromIndex + size, students.size());
-
-        return students.subList(fromIndex, toIndex)
-                .stream()
-                .map(s -> new StudentSummaryDto(
-                        s.getId(),
-                        s.getFullName()
-                ))
-                .collect(Collectors.toList());
+        return PageResponse.<StudentSummaryDto>builder()
+                .items(page.getContent())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .total(page.getTotalElements())
+                .build();
     }
 
     @Override
@@ -87,6 +78,7 @@ public class StudentServiceImpl implements StudentService {
         if (principal.getRole() != Role.TEACHER) {
             throw new ForbiddenException("Access denied");
         }
+
 
         UserEntity student = userRepository
                 .findByIdAndRole(studentId, Role.STUDENT)

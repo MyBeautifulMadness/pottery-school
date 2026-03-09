@@ -1,9 +1,8 @@
 package com.example.PotteryPotSchool.Students;
 
+import com.example.PotteryPotSchool.dto.Students.PageResponse;
 import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
-import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Users.Role;
-import com.example.PotteryPotSchool.config.BadRequestException;
 import com.example.PotteryPotSchool.config.ForbiddenException;
 import com.example.PotteryPotSchool.config.UnauthorizedException;
 import com.example.PotteryPotSchool.repository.UserRepository;
@@ -20,6 +19,10 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
 import java.util.UUID;
@@ -54,26 +57,23 @@ class StudentServiceTest {
         Mockito.when(jwtService.isTokenValid(token)).thenReturn(true);
         Mockito.when(jwtService.extractUserPrincipal(token)).thenReturn(teacher);
 
-        UserEntity s1 = new UserEntity();
-        s1.setId(UUID.randomUUID());
-        s1.setFullName("Alice");
-        s1.setEmail("a@mail.com");
-        s1.setRole(Role.STUDENT);
+        StudentSummaryDto s1 =
+                new StudentSummaryDto(UUID.randomUUID(), "Alice");
 
-        UserEntity s2 = new UserEntity();
-        s2.setId(UUID.randomUUID());
-        s2.setFullName("Bob");
-        s2.setEmail("b@mail.com");
-        s2.setRole(Role.STUDENT);
+        StudentSummaryDto s2 =
+                new StudentSummaryDto(UUID.randomUUID(), "Bob");
 
-        Mockito.when(userRepository.findByRole(Role.STUDENT))
-                .thenReturn(List.of(s1, s2));
+        Page<StudentSummaryDto> page =
+                new PageImpl<>(List.of(s1, s2));
 
-        List<StudentSummaryDto> result =
-                studentService.getStudents(token, null, 0, 20);
+        Mockito.when(userRepository.findStudents(Mockito.any(PageRequest.class)))
+                .thenReturn(page);
 
-        assertEquals(2, result.size());
-        assertEquals("Alice", result.get(0).getFullName());
+        PageResponse<StudentSummaryDto> result =
+                studentService.getStudents(token, null, PageRequest.of(0, 20));
+
+        assertEquals(2, result.getItems().size());
+        assertEquals("Alice", result.getItems().get(0).getFullName());
     }
 
     @Test
@@ -85,23 +85,20 @@ class StudentServiceTest {
         Mockito.when(jwtService.isTokenValid(token)).thenReturn(true);
         Mockito.when(jwtService.extractUserPrincipal(token)).thenReturn(teacher);
 
-        UserEntity student = new UserEntity();
-        student.setId(UUID.randomUUID());
-        student.setFullName("Charlie");
-        student.setEmail("c@mail.com");
-        student.setRole(Role.STUDENT);
+        StudentSummaryDto student =
+                new StudentSummaryDto(UUID.randomUUID(), "Charlie");
 
-        Mockito.when(userRepository
-                        .findByRoleAndFullNameContainingIgnoreCaseOrRoleAndEmailContainingIgnoreCase(
-                                Role.STUDENT, "char",
-                                Role.STUDENT,"char"))
-                .thenReturn(List.of(student));
+        Page<StudentSummaryDto> page =
+                new PageImpl<>(List.of(student));
 
-        List<StudentSummaryDto> result =
-                studentService.getStudents(token, "char", 0, 20);
+        Mockito.when(userRepository.searchStudents(Mockito.eq("char"), Mockito.any(PageRequest.class)))
+                .thenReturn(page);
 
-        assertEquals(1, result.size());
-        assertEquals("Charlie", result.get(0).getFullName());
+        PageResponse<StudentSummaryDto> result =
+                studentService.getStudents(token,"char", PageRequest.of(0, 20));
+
+        assertEquals(1, result.getItems().size());
+        assertEquals("Charlie", result.getItems().get(0).getFullName());
     }
 
     @Test
@@ -113,26 +110,20 @@ class StudentServiceTest {
         Mockito.when(jwtService.isTokenValid(token)).thenReturn(true);
         Mockito.when(jwtService.extractUserPrincipal(token)).thenReturn(teacher);
 
-        UserEntity s1 = new UserEntity();
-        s1.setId(UUID.randomUUID());
-        s1.setFullName("Alice");
+        StudentSummaryDto s3 =
+                new StudentSummaryDto(UUID.randomUUID(), "Charlie");
 
-        UserEntity s2 = new UserEntity();
-        s2.setId(UUID.randomUUID());
-        s2.setFullName("Bob");
+        Page<StudentSummaryDto> page =
+                new PageImpl<>(List.of(s3));
 
-        UserEntity s3 = new UserEntity();
-        s3.setId(UUID.randomUUID());
-        s3.setFullName("Charlie");
+        Mockito.when(userRepository.findStudents(Mockito.any(PageRequest.class)))
+                .thenReturn(page);
 
-        Mockito.when(userRepository.findByRole(Role.STUDENT))
-                .thenReturn(List.of(s1, s2, s3));
+        PageResponse<StudentSummaryDto> result =
+                studentService.getStudents(token,null, PageRequest.of(0, 20));
 
-        List<StudentSummaryDto> result =
-                studentService.getStudents(token, null, 1, 2);
-
-        assertEquals(1, result.size());
-        assertEquals("Charlie", result.get(0).getFullName());
+        assertEquals(1, result.getItems().size());
+        assertEquals("Charlie", result.getItems().get(0).getFullName());
     }
 
     @Test
@@ -142,7 +133,7 @@ class StudentServiceTest {
 
         assertThrows(
                 UnauthorizedException.class,
-                () -> studentService.getStudents(token, null, 0, 20)
+                () -> studentService.getStudents(token,null, PageRequest.of(0, 20))
         );
     }
 
@@ -157,22 +148,7 @@ class StudentServiceTest {
 
         assertThrows(
                 ForbiddenException.class,
-                () -> studentService.getStudents(token, null, 0, 20)
-        );
-    }
-
-    @Test
-    void getStudents_invalidPagination_throwsBadRequest() {
-
-        UserPrincipal teacher =
-                new UserPrincipal(UUID.randomUUID(), "teacher@mail.com", Role.TEACHER);
-
-        Mockito.when(jwtService.isTokenValid(token)).thenReturn(true);
-        Mockito.when(jwtService.extractUserPrincipal(token)).thenReturn(teacher);
-
-        assertThrows(
-                BadRequestException.class,
-                () -> studentService.getStudents(token, null, -1, 20)
+                () -> studentService.getStudents(token,null, PageRequest.of(0, 20))
         );
     }
 }

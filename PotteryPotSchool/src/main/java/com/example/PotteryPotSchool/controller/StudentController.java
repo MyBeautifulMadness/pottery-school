@@ -1,10 +1,13 @@
 package com.example.PotteryPotSchool.controller;
 
 import com.example.PotteryPotSchool.config.BadRequestException;
+import com.example.PotteryPotSchool.dto.Students.PageResponse;
 import com.example.PotteryPotSchool.dto.Students.StudentDetailsDto;
 import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
 import com.example.PotteryPotSchool.service.Students.StudentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,17 +20,19 @@ public class StudentController {
 
     private final StudentService studentService;
 
-    @GetMapping
-    public List<StudentSummaryDto> getStudents(
+    @GetMapping()
+    public PageResponse<StudentSummaryDto> getStudents(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestParam(required = false) String q,
-            @RequestParam(defaultValue = "0") Integer page,
-            @RequestParam(defaultValue = "20") Integer size
+            @RequestParam(required = false) String query,
+            @PageableDefault Pageable pageable
     ) {
-
         String token = extractToken(authHeader);
 
-        return studentService.getStudents(token, q, page, size);
+        if (pageable.getPageNumber() < 0 || pageable.getPageSize() <= 0 || pageable.getPageSize() > 100) {
+            throw new BadRequestException("Invalid pagination parameters");
+        }
+
+        return studentService.getStudents(token, query, pageable);
     }
 
     @GetMapping("/{studentId}")
