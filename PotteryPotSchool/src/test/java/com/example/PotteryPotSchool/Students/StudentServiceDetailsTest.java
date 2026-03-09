@@ -4,8 +4,10 @@ import com.example.PotteryPotSchool.config.ForbiddenException;
 import com.example.PotteryPotSchool.config.NotFoundException;
 import com.example.PotteryPotSchool.config.UnauthorizedException;
 import com.example.PotteryPotSchool.dto.Students.StudentDetailsDto;
+import com.example.PotteryPotSchool.entity.Profiles.ProfileEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Users.Role;
+import com.example.PotteryPotSchool.repository.ProfileRepository;
 import com.example.PotteryPotSchool.repository.UserRepository;
 import com.example.PotteryPotSchool.security.UserPrincipal;
 import com.example.PotteryPotSchool.service.Login.JwtService;
@@ -28,6 +30,9 @@ class StudentServiceDetailsTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private ProfileRepository profileRepository;
 
     @Mock
     private JwtService jwtService;
@@ -53,25 +58,32 @@ class StudentServiceDetailsTest {
         Mockito.when(jwtService.isTokenValid(token)).thenReturn(true);
         Mockito.when(jwtService.extractUserPrincipal(token)).thenReturn(teacher);
 
-        UserEntity student = new UserEntity();
-        student.setId(studentId);
-        student.setEmail("student@test.com");
-        student.setFullName("John Doe");
-        student.setPassword("pass");
-        student.setAbout("About John");
-        student.setRole(Role.STUDENT);
+        UserEntity student = UserEntity.builder()
+                .id(studentId)
+                .email("student@mail.com")
+                .role(Role.STUDENT)
+                .build();
+
+        ProfileEntity profile = ProfileEntity.builder()
+                .userId(studentId)
+                .fullName("John Doe")
+                .about("About John")
+                .build();
 
         Mockito.when(userRepository.findByIdAndRole(studentId, Role.STUDENT))
                 .thenReturn(Optional.of(student));
+
+        Mockito.when(profileRepository.findById(studentId))
+                .thenReturn(Optional.of(profile));
 
         StudentDetailsDto dto =
                 studentService.getStudentById(token, studentId);
 
         assertNotNull(dto);
         assertEquals(studentId, dto.getId());
-        assertEquals("John Doe", dto.getFullName());
-        assertEquals("student@test.com", dto.getEmail());
-        assertEquals("About John", dto.getAbout());
+
+        assertEquals("John Doe", dto.getProfile().getFullName());
+        assertEquals("About John", dto.getProfile().getAbout());
     }
 
     @Test
@@ -84,6 +96,32 @@ class StudentServiceDetailsTest {
         Mockito.when(jwtService.extractUserPrincipal(token)).thenReturn(teacher);
 
         Mockito.when(userRepository.findByIdAndRole(studentId, Role.STUDENT))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> studentService.getStudentById(token, studentId)
+        );
+    }
+
+    @Test
+    void getStudentById_profileNotFound() {
+
+        UserPrincipal teacher =
+                new UserPrincipal(UUID.randomUUID(), "teacher@mail.com", Role.TEACHER);
+
+        Mockito.when(jwtService.isTokenValid(token)).thenReturn(true);
+        Mockito.when(jwtService.extractUserPrincipal(token)).thenReturn(teacher);
+
+        UserEntity student = UserEntity.builder()
+                .id(studentId)
+                .role(Role.STUDENT)
+                .build();
+
+        Mockito.when(userRepository.findByIdAndRole(studentId, Role.STUDENT))
+                .thenReturn(Optional.of(student));
+
+        Mockito.when(profileRepository.findById(studentId))
                 .thenReturn(Optional.empty());
 
         assertThrows(

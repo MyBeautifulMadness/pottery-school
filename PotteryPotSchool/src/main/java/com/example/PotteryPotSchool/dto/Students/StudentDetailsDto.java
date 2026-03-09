@@ -10,6 +10,7 @@ import java.util.UUID;
 public class StudentDetailsDto {
 
     private UUID id;
+
     private String fullName;
     private String email;
     private String about;

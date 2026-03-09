@@ -66,8 +66,7 @@ public class StudentServiceImpl implements StudentService {
                 .stream()
                 .map(s -> new StudentSummaryDto(
                         s.getId(),
-                        s.getFullName(),
-                        s.getEmail()
+                        s.getFullName()
                 ))
                 .collect(Collectors.toList());
     }
