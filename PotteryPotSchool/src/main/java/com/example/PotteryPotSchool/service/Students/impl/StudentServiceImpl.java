@@ -1,5 +1,7 @@
 package com.example.PotteryPotSchool.service.Students.impl;
 
+import com.example.PotteryPotSchool.config.NotFoundException;
+import com.example.PotteryPotSchool.dto.Students.StudentDetailsDto;
 import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Users.Role;
@@ -14,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -67,5 +70,30 @@ public class StudentServiceImpl implements StudentService {
                         s.getEmail()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public StudentDetailsDto getStudentById(String token, UUID studentId) {
+
+        if (token == null || !jwtService.isTokenValid(token)) {
+            throw new UnauthorizedException("Invalid token");
+        }
+
+        UserPrincipal principal = jwtService.extractUserPrincipal(token);
+
+        if (principal.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Access denied");
+        }
+
+        UserEntity student = userRepository
+                .findByIdAndRole(studentId, Role.STUDENT)
+                .orElseThrow(() -> new NotFoundException("Student not found"));
+
+        return new StudentDetailsDto(
+                student.getId(),
+                student.getFullName(),
+                student.getEmail(),
+                student.getAbout()
+        );
     }
 }

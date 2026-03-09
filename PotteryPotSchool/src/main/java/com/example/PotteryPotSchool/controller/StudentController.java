@@ -1,14 +1,17 @@
 package com.example.PotteryPotSchool.controller;
 
+import com.example.PotteryPotSchool.config.BadRequestException;
+import com.example.PotteryPotSchool.dto.Students.StudentDetailsDto;
 import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
 import com.example.PotteryPotSchool.service.Students.StudentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
-@RequestMapping("/students")
+@RequestMapping("/api/students")
 @RequiredArgsConstructor
 public class StudentController {
 
@@ -26,6 +29,26 @@ public class StudentController {
 
         return studentService.getStudents(token, q, page, size);
     }
+
+    @GetMapping("/{studentId}")
+    public StudentDetailsDto getStudentDetails(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable String studentId
+    ) {
+
+        String token = extractToken(authHeader);
+
+        UUID uuid;
+
+        try {
+            uuid = UUID.fromString(studentId);
+        } catch (Exception e) {
+            throw new BadRequestException("studentId must be UUID");
+        }
+
+        return studentService.getStudentById(token, uuid);
+    }
+
 
     private String extractToken(String authHeader) {
 

@@ -3,12 +3,13 @@ package com.example.PotteryPotSchool.Students;
 import com.example.PotteryPotSchool.config.ForbiddenException;
 import com.example.PotteryPotSchool.config.NotFoundException;
 import com.example.PotteryPotSchool.config.UnauthorizedException;
+import com.example.PotteryPotSchool.dto.Students.StudentDetailsDto;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.repository.UserRepository;
 import com.example.PotteryPotSchool.security.UserPrincipal;
 import com.example.PotteryPotSchool.service.Login.JwtService;
-import com.example.PotteryPotSchool.service.Students.StudentService;
+import com.example.PotteryPotSchool.service.Students.impl.StudentServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,9 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.skyscreamer.jsonassert.JSONAssert.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
 class StudentServiceDetailsTest {
@@ -34,7 +33,7 @@ class StudentServiceDetailsTest {
     private JwtService jwtService;
 
     @InjectMocks
-    private StudentService studentService;
+    private StudentServiceImpl studentService;
 
     private UUID studentId;
     private String token;
