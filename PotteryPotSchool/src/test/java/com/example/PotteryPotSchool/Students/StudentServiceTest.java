@@ -1,5 +1,6 @@
 package com.example.PotteryPotSchool.Students;
 
+import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.config.BadRequestException;
@@ -91,8 +92,9 @@ class StudentServiceTest {
         student.setRole(Role.STUDENT);
 
         Mockito.when(userRepository
-                        .findByRoleAndFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
-                                Role.STUDENT, "char", "char"))
+                        .findByRoleAndFullNameContainingIgnoreCaseOrRoleAndEmailContainingIgnoreCase(
+                                Role.STUDENT, "char",
+                                Role.STUDENT,"char"))
                 .thenReturn(List.of(student));
 
         List<StudentSummaryDto> result =
