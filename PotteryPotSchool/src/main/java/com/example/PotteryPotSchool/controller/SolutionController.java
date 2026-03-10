@@ -1,5 +1,6 @@
 package com.example.PotteryPotSchool.controller;
 
+import com.example.PotteryPotSchool.dto.Solutions.SolutionDto;
 import com.example.PotteryPotSchool.dto.Solutions.SolutionSummaryDto;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
 import com.example.PotteryPotSchool.security.UserPrincipal;
@@ -28,5 +29,13 @@ public class SolutionController {
     ) {
 
         return solutionService.getSolutions(postId, status, user);
+    }
+
+    @GetMapping("/{postId}/solutions/mine")
+    public SolutionDto getMySolution(
+            @PathVariable UUID postId,
+            @AuthenticationPrincipal UserPrincipal user
+    ) {
+        return solutionService.getMySolution(postId, user.getId());
     }
 }

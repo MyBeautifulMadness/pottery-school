@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface SolutionRepository extends JpaRepository<SolutionEntity, UUID> {
@@ -38,4 +39,6 @@ public interface SolutionRepository extends JpaRepository<SolutionEntity, UUID> 
         and s.status = :status
     """)
     List<SolutionSummaryDto> findByPostIdAndStatus(UUID postId, SolutionStatus status);
+
+    Optional<SolutionEntity> findByPostIdAndStudentId(UUID postId, UUID studentId);
 }

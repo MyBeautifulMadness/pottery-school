@@ -2,6 +2,7 @@ package com.example.PotteryPotSchool.service.Solutions.impl;
 
 import com.example.PotteryPotSchool.config.ForbiddenException;
 import com.example.PotteryPotSchool.config.NotFoundException;
+import com.example.PotteryPotSchool.dto.Solutions.SolutionDto;
 import com.example.PotteryPotSchool.dto.Solutions.SolutionSummaryDto;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
@@ -11,6 +12,7 @@ import com.example.PotteryPotSchool.repository.PostRepository;
 import com.example.PotteryPotSchool.repository.SolutionRepository;
 import com.example.PotteryPotSchool.security.UserPrincipal;
 import com.example.PotteryPotSchool.enums.Users.Role;
+import com.example.PotteryPotSchool.service.Solutions.SolutionMapper;
 import com.example.PotteryPotSchool.service.Solutions.SolutionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,7 @@ import java.util.UUID;
 public class SolutionServiceImpl implements SolutionService {
 
     private final SolutionRepository solutionRepository;
+    private final SolutionMapper solutionMapper;
     private final PostRepository postRepository;
 
     @Override
@@ -52,5 +55,15 @@ public class SolutionServiceImpl implements SolutionService {
         }
 
         return solutions;
+    }
+
+    @Override
+    public SolutionDto getMySolution(UUID postId, UUID studentId) {
+
+        SolutionEntity solution = solutionRepository
+                .findByPostIdAndStudentId(postId, studentId)
+                .orElseThrow(() -> new NotFoundException("Solution not found"));
+
+        return solutionMapper.toDto(solution);
     }
 }

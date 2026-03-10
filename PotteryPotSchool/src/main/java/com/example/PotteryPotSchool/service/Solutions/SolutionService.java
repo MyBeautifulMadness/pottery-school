@@ -1,5 +1,6 @@
 package com.example.PotteryPotSchool.service.Solutions;
 
+import com.example.PotteryPotSchool.dto.Solutions.SolutionDto;
 import com.example.PotteryPotSchool.dto.Solutions.SolutionSummaryDto;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
 import com.example.PotteryPotSchool.security.UserPrincipal;
@@ -14,5 +15,7 @@ public interface SolutionService {
             SolutionStatus status,
             UserPrincipal user
     );
+
+    SolutionDto getMySolution(UUID postId, UUID studentId);
 
 }
