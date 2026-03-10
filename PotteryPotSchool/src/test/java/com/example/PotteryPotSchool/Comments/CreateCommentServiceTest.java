@@ -42,7 +42,7 @@ public class CreateCommentServiceTest {
     private MeService meService;
 
     @InjectMocks
-    private CommentsService commentService;
+    private CommentServiceImpl commentService;
 
     @Test
     void shouldCreateCommentForAuthorizedUser() {
