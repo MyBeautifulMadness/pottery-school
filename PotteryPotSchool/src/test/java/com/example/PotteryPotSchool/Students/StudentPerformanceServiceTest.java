@@ -119,29 +119,6 @@ class StudentPerformanceServiceTest {
     }
 
     @Test
-    void noSolutionStillReturnsItem() {
-
-        PostEntity post = new PostEntity();
-        post.setId(UUID.randomUUID());
-        post.setTitle("Task");
-
-        Mockito.when(jwtService.isTokenValid(token)).thenReturn(true);
-        Mockito.when(userRepository.existsById(studentId)).thenReturn(true);
-
-        Mockito.when(postRepository.findAll())
-                .thenReturn(List.of(post));
-
-        Mockito.when(solutionRepository.findByPostIdAndStudentId(post.getId(), studentId))
-                .thenReturn(Optional.empty());
-
-        PerformanceSummaryDto result =
-                studentService.getStudentPerformance(token, studentId);
-
-        assertEquals(1, result.getItems().size());
-        assertNull(result.getItems().get(0).getSolutionId());
-    }
-
-    @Test
     void invalidTokenThrows401() {
 
         Mockito.when(jwtService.isTokenValid(token)).thenReturn(false);

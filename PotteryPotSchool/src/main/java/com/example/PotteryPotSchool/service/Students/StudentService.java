@@ -1,6 +1,7 @@
 package com.example.PotteryPotSchool.service.Students;
 
 import com.example.PotteryPotSchool.dto.Students.PageResponse;
+import com.example.PotteryPotSchool.dto.Students.PerformanceSummaryDto;
 import com.example.PotteryPotSchool.dto.Students.StudentDetailsDto;
 import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
 import org.springframework.data.domain.Pageable;
@@ -14,4 +15,5 @@ public interface StudentService {
             Pageable pageable
     );
     StudentDetailsDto getStudentById(String token, UUID studentId);
+    PerformanceSummaryDto getStudentPerformance(String token, UUID studentId);
 }
