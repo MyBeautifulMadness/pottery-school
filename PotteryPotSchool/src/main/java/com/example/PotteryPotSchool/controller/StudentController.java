@@ -2,6 +2,7 @@ package com.example.PotteryPotSchool.controller;
 
 import com.example.PotteryPotSchool.config.BadRequestException;
 import com.example.PotteryPotSchool.dto.Students.PageResponse;
+import com.example.PotteryPotSchool.dto.Students.PerformanceSummaryDto;
 import com.example.PotteryPotSchool.dto.Students.StudentDetailsDto;
 import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
 import com.example.PotteryPotSchool.service.Students.StudentService;
@@ -52,6 +53,14 @@ public class StudentController {
         }
 
         return studentService.getStudentById(token, uuid);
+    }
+
+    @GetMapping("/{studentId}/performance")
+    public PerformanceSummaryDto getPerformance(
+            @RequestHeader("Authorization") String token,
+            @PathVariable UUID studentId
+    ) {
+        return studentService.getStudentPerformance(token, studentId);
     }
 
 
