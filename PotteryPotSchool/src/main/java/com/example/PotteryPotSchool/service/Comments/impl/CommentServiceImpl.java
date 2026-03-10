@@ -1,11 +1,13 @@
 package com.example.PotteryPotSchool.service.Comments.impl;
 
 import com.example.PotteryPotSchool.config.BadRequestException;
+import com.example.PotteryPotSchool.config.ForbiddenException;
 import com.example.PotteryPotSchool.config.NotFoundException;
 import com.example.PotteryPotSchool.dto.Comments.CommentCreateRequest;
 import com.example.PotteryPotSchool.dto.Comments.CommentDetails;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Comments.CommentEntity;
+import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.repository.CommentRepository;
 import com.example.PotteryPotSchool.repository.PostRepository;
 import com.example.PotteryPotSchool.service.Comments.CommentsService;
@@ -53,6 +55,23 @@ public class CommentServiceImpl implements CommentsService {
         return commentRepository.findAllByPostId(postId).stream()
                 .map(this::mapToDetails)
                 .toList();
+    }
+
+    @Override
+    public void delete(UUID commentId) {
+        User currentUser = meService.getMe();
+
+        CommentEntity comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException("Комментарий не найден: " + commentId));
+
+        boolean isTeacher = currentUser.getRole() == Role.TEACHER;
+        boolean isAuthor = currentUser.getId().equals(comment.getAuthorId());
+
+        if (!isTeacher && !isAuthor) {
+            throw new ForbiddenException("Вы не можете удалить данный комментарий, его могут удалить только автор и учитель");
+        }
+
+        commentRepository.delete(comment);
     }
 
 

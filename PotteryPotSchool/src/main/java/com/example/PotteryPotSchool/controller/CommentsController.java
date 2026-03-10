@@ -6,6 +6,7 @@ import com.example.PotteryPotSchool.service.Comments.CommentsService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,5 +30,12 @@ public class CommentsController {
     @Operation(summary = "Комментарии к посту")
     public List<CommentDetails> getCommentsByPostId(@PathVariable UUID postId) {
         return commentService.getByPostId(postId);
+    }
+
+    @DeleteMapping("/comments/{commentId}")
+    @Operation(summary = "Удалить комментарий (автор и преподаватель)")
+    public ResponseEntity<Void> deleteComment(@PathVariable UUID commentId) {
+        commentService.delete(commentId);
+        return ResponseEntity.noContent().build();
     }
 }
