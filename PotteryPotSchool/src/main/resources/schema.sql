@@ -37,3 +37,25 @@ INSERT INTO profiles (user_id, full_name, about) VALUES
 ('44444444-4444-4444-4444-444444444444', 'Teacher One', '4'),
 ('55555555-5555-5555-5555-555555555555', 'Teacher Two', '5')
 ON CONFLICT DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS solutions (
+    id UUID PRIMARY KEY,
+    post_id UUID NOT NULL,
+    student_id UUID NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    text TEXT,
+    video_url VARCHAR(255),
+    attachment_url VARCHAR(255),
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    submitted_at TIMESTAMP,
+    CONSTRAINT fk_solutions_post
+        FOREIGN KEY (post_id)
+        REFERENCES posts(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_solutions_student
+        FOREIGN KEY (student_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+    CONSTRAINT uk_solution_post_student UNIQUE (post_id, student_id)
+);

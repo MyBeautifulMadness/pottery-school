@@ -2,12 +2,17 @@ package com.example.PotteryPotSchool.Solutions;
 
 import com.example.PotteryPotSchool.config.ForbiddenException;
 import com.example.PotteryPotSchool.config.NotFoundException;
+import com.example.PotteryPotSchool.dto.Solutions.Solution;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
+import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
+import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
 import com.example.PotteryPotSchool.enums.Users.Role;
+import com.example.PotteryPotSchool.repository.SolutionRepository;
 import com.example.PotteryPotSchool.service.Me.MeService;
+import com.example.PotteryPotSchool.service.Solutions.impl.SolutionServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

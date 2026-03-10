@@ -3,14 +3,20 @@ package com.example.PotteryPotSchool.Solutions;
 import com.example.PotteryPotSchool.config.BadRequestException;
 import com.example.PotteryPotSchool.config.ForbiddenException;
 import com.example.PotteryPotSchool.config.NotFoundException;
+import com.example.PotteryPotSchool.dto.Solutions.Solution;
+import com.example.PotteryPotSchool.dto.Solutions.SolutionUpsertRequest;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
+import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
 import com.example.PotteryPotSchool.enums.Users.Role;
+import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
 import com.example.PotteryPotSchool.repository.PostRepository;
+import com.example.PotteryPotSchool.repository.SolutionRepository;
 import com.example.PotteryPotSchool.repository.UserRepository;
 import com.example.PotteryPotSchool.service.Me.MeService;
+import com.example.PotteryPotSchool.service.Solutions.impl.SolutionServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -76,7 +82,7 @@ public class CreateOrUpdateSolutionServiceTests {
         when(meService.getMe()).thenReturn(currentUser);
         when(postRepository.findById(postId)).thenReturn(Optional.of(taskPost));
         when(userRepository.findById(studentId)).thenReturn(Optional.of(studentEntity));
-        when(solutionRepository.findByPostIdAndStudentId(postId, studentId)).thenReturn(Optional.empty());
+        when(solutionRepository.findByPostIdAndStudent(postId, studentId)).thenReturn(Optional.empty());
         when(solutionRepository.save(any(SolutionEntity.class))).thenAnswer(invocation -> {
             SolutionEntity solution = invocation.getArgument(0);
             solution.setId(solutionId);
@@ -128,7 +134,7 @@ public class CreateOrUpdateSolutionServiceTests {
         when(meService.getMe()).thenReturn(currentUser);
         when(postRepository.findById(postId)).thenReturn(Optional.of(taskPost));
         when(userRepository.findById(studentId)).thenReturn(Optional.of(studentEntity));
-        when(solutionRepository.findByPostIdAndStudentId(postId, studentId)).thenReturn(Optional.empty());
+        when(solutionRepository.findByPostIdAndStudent(postId, studentId)).thenReturn(Optional.empty());
         when(solutionRepository.save(any(SolutionEntity.class))).thenAnswer(invocation -> {
             SolutionEntity solution = invocation.getArgument(0);
             solution.setId(solutionId);
@@ -184,7 +190,7 @@ public class CreateOrUpdateSolutionServiceTests {
         when(meService.getMe()).thenReturn(currentUser);
         when(postRepository.findById(postId)).thenReturn(Optional.of(taskPost));
         when(userRepository.findById(studentId)).thenReturn(Optional.of(studentEntity));
-        when(solutionRepository.findByPostIdAndStudentId(postId, studentId)).thenReturn(Optional.of(existing));
+        when(solutionRepository.findByPostIdAndStudent(postId, studentId)).thenReturn(Optional.of(existing));
         when(solutionRepository.save(any(SolutionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Solution result = solutionService.createOrUpdate(postId, request);
