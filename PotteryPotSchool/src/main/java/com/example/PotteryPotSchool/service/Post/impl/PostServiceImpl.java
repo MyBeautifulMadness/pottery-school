@@ -10,9 +10,13 @@ import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.entity.Posts.TaskEntity;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
 import com.example.PotteryPotSchool.enums.Users.Role;
+import com.example.PotteryPotSchool.repository.CommentRepository;
+import com.example.PotteryPotSchool.repository.GradeRepository;
 import com.example.PotteryPotSchool.repository.PostRepository;
+import com.example.PotteryPotSchool.repository.SolutionRepository;
 import com.example.PotteryPotSchool.service.Me.MeService;
 import com.example.PotteryPotSchool.service.Post.PostService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -29,6 +33,9 @@ public class PostServiceImpl implements PostService {
 
     private final PostRepository postRepository;
     private final MeService meService;
+    private final CommentRepository commentRepository;
+    private final SolutionRepository solutionRepository;
+    private final GradeRepository gradeRepository;
 
     @Override
     public PostDetails createPost(PostCreateRequest request) {
@@ -65,6 +72,7 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
+    @Transactional
     public void delete(UUID postId) {
         User currentUser = meService.getMe();
 
@@ -72,8 +80,11 @@ public class PostServiceImpl implements PostService {
             throw new ForbiddenException("Только учителя могут удалять пост");
         }
 
-        PostEntity post = postRepository.findById(postId)
-                .orElseThrow(() -> new NotFoundException("Пост не найден: " + postId));
+        PostEntity post = postRepository.findById(postId).orElseThrow(() -> new NotFoundException("Пост не найден: " + postId));
+
+        gradeRepository.deleteAllBySolution_Post_Id(postId);
+        solutionRepository.deleteAllByPost_Id(postId);
+        commentRepository.deleteAllByPostId(postId);
 
         postRepository.delete(post);
     }
