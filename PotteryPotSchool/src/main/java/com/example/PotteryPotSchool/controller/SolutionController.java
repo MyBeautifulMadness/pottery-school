@@ -4,7 +4,10 @@ import com.example.PotteryPotSchool.dto.Solutions.SolutionDto;
 import com.example.PotteryPotSchool.dto.Solutions.SolutionSummaryDto;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
 import com.example.PotteryPotSchool.security.UserPrincipal;
+import com.example.PotteryPotSchool.dto.Solutions.Solution;
+import com.example.PotteryPotSchool.dto.Solutions.SolutionUpsertRequest;
 import com.example.PotteryPotSchool.service.Solutions.SolutionService;
+import io.swagger.v3.oas.annotations.Operation;
 
 import lombok.RequiredArgsConstructor;
 
@@ -15,13 +18,23 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
+@RequestMapping("/api")
 @RequiredArgsConstructor
-@RequestMapping("/api/posts")
 public class SolutionController {
 
     private final SolutionService solutionService;
 
-    @GetMapping("/{postId}/solutions")
+    @PostMapping("/posts/{postId}/solutions")
+    public Solution createOrUpdate(@PathVariable UUID postId, @RequestBody SolutionUpsertRequest request) {
+        return solutionService.createOrUpdate(postId, request);
+    }
+
+    @PostMapping("/solutions/{solutionId}/submit")
+    public Solution submit(@PathVariable UUID solutionId) {
+        return solutionService.submit(solutionId);
+    }
+
+    @GetMapping("/posts/{postId}/solutions")
     public List<SolutionSummaryDto> getSolutions(
             @PathVariable UUID postId,
             @RequestParam(required = false) SolutionStatus status,
@@ -31,7 +44,7 @@ public class SolutionController {
         return solutionService.getSolutions(postId, status, user);
     }
 
-    @GetMapping("/{postId}/solutions/mine")
+    @GetMapping("/posts/{postId}/solutions/mine")
     public SolutionDto getMySolution(
             @PathVariable UUID postId,
             @AuthenticationPrincipal UserPrincipal user
@@ -39,3 +52,4 @@ public class SolutionController {
         return solutionService.getMySolution(postId, user.getId());
     }
 }
+
