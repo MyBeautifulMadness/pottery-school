@@ -9,4 +9,5 @@ import java.util.UUID;
 public interface CommentsService {
     CommentDetails create(UUID postId, CommentCreateRequest request);
     List<CommentDetails> getByPostId(UUID postId);
+    void delete(UUID commentId);
 }
