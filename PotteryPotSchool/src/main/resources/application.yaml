@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/potterypotschooldb
     username: postgres
-    password: V
+    password: WEyfvb56.
 
   jpa:
     hibernate:
