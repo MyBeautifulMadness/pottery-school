@@ -70,4 +70,41 @@ public class GradeServiceImpl implements GradeService {
                 .teacherId(grade.getTeacherId())
                 .build();
     }
+
+    @Override
+    public GradeDto getGrade(String token, UUID solutionId) {
+
+        if (token == null) {
+            throw new UnauthorizedException("Invalid token");
+        }
+
+        if (token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+
+        if (!jwtService.isTokenValid(token)) {
+            throw new UnauthorizedException("Invalid token");
+        }
+
+        UserPrincipal user = jwtService.extractUserPrincipal(token);
+
+        SolutionEntity solution = solutionRepository.findById(solutionId)
+                .orElseThrow(() -> new NotFoundException("Solution not found"));
+
+        if (user.getRole() == Role.STUDENT &&
+                !solution.getStudentId().equals(user.getId())) {
+            throw new ForbiddenException("Access denied");
+        }
+
+        GradeEntity grade = gradeRepository.findBySolution_Id(solutionId)
+                .orElseThrow(() -> new NotFoundException("Grade not found"));
+
+        return GradeDto.builder()
+                .solutionId(solutionId)
+                .score(grade.getScore())
+                .teacherComment(grade.getTeacherComment())
+                .gradedAt(grade.getGradedAt())
+                .teacherId(grade.getTeacherId())
+                .build();
+    }
 }

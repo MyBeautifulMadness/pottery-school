@@ -10,7 +10,7 @@ import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/solutions")
+@RequestMapping("/api/solutions")
 public class GradeController {
 
     private final GradeService gradeService;
@@ -23,6 +23,14 @@ public class GradeController {
     ) {
         String token = extractToken(authHeader);
         return gradeService.upsertGrade(token, solutionId, request);
+    }
+
+    @GetMapping("/{solutionId}/grade")
+    public GradeDto getGrade(
+            @RequestHeader("Authorization") String token,
+            @PathVariable UUID solutionId
+    ) {
+        return gradeService.getGrade(token, solutionId);
     }
 
     private String extractToken(String authHeader) {

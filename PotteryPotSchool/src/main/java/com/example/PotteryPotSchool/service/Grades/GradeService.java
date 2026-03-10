@@ -9,4 +9,6 @@ public interface GradeService {
 
     GradeDto upsertGrade(String token, UUID solutionId, GradeUpsertRequest request);
 
+    GradeDto getGrade(String token, UUID solutionId);
+
 }
