@@ -26,7 +26,7 @@ public class SolutionEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id", nullable = false)
-    public PostEntity post;
+    private PostEntity post;
 
     @Column(name = "student_id", nullable = false)
     private UUID studentId;
