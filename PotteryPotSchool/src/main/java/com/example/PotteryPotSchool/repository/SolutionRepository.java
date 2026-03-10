@@ -41,4 +41,5 @@ public interface SolutionRepository extends JpaRepository<SolutionEntity, UUID> 
     List<SolutionSummaryDto> findByPostIdAndStatus(UUID postId, SolutionStatus status);
 
     Optional<SolutionEntity> findByPostIdAndStudentId(UUID postId, UUID studentId);
+    void deleteAllByPost_Id(UUID postId);
 }

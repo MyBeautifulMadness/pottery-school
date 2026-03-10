@@ -9,5 +9,6 @@ import java.util.UUID;
 public interface GradeRepository extends JpaRepository<GradeEntity, UUID> {
 
     Optional<GradeEntity> findBySolution_Id(UUID solutionId);
+    void deleteAllBySolution_Post_Id(UUID postId);
 
 }

@@ -6,7 +6,10 @@ import com.example.PotteryPotSchool.config.UnauthorizedException;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.enums.Users.Role;
+import com.example.PotteryPotSchool.repository.CommentRepository;
+import com.example.PotteryPotSchool.repository.GradeRepository;
 import com.example.PotteryPotSchool.repository.PostRepository;
+import com.example.PotteryPotSchool.repository.SolutionRepository;
 import com.example.PotteryPotSchool.service.Me.MeService;
 import com.example.PotteryPotSchool.service.Post.PostService;
 import com.example.PotteryPotSchool.service.Post.impl.PostServiceImpl;
@@ -33,12 +36,22 @@ public class DeletePostServiceTest {
     @Mock
     private MeService meService;
 
+    @Mock
+    private CommentRepository commentRepository;
+
+    @Mock
+    private SolutionRepository solutionRepository;
+
+    @Mock
+    private GradeRepository gradeRepository;
+
     @InjectMocks
     private PostServiceImpl deletePostService;
 
     @Test
-    void shouldDeletePostWhenUserIsTeacher() {
+    void shouldDeletePostWithAllRelatedEntitiesWhenUserIsTeacher() {
         UUID postId = UUID.randomUUID();
+
         User teacher = User.builder().id(UUID.randomUUID()).email("teacher@lol.com").role(Role.TEACHER).build();
 
         PostEntity post = PostEntity.builder()
@@ -56,6 +69,11 @@ public class DeletePostServiceTest {
 
         verify(meService).getMe();
         verify(postRepository).findById(postId);
+
+        verify(gradeRepository).deleteAllBySolution_Post_Id(postId);
+        verify(solutionRepository).deleteAllByPost_Id(postId);
+        verify(commentRepository).deleteAllByPostId(postId);
+
         verify(postRepository).delete(post);
     }
 
@@ -69,6 +87,9 @@ public class DeletePostServiceTest {
 
         verify(meService).getMe();
         verifyNoInteractions(postRepository);
+        verifyNoInteractions(commentRepository);
+        verifyNoInteractions(solutionRepository);
+        verifyNoInteractions(gradeRepository);
     }
 
     @Test
@@ -83,6 +104,9 @@ public class DeletePostServiceTest {
 
         verify(meService).getMe();
         verifyNoInteractions(postRepository);
+        verifyNoInteractions(commentRepository);
+        verifyNoInteractions(solutionRepository);
+        verifyNoInteractions(gradeRepository);
     }
 
     @Test
@@ -98,6 +122,10 @@ public class DeletePostServiceTest {
 
         verify(meService).getMe();
         verify(postRepository).findById(postId);
+
         verify(postRepository, never()).delete(any(PostEntity.class));
+        verifyNoInteractions(commentRepository);
+        verifyNoInteractions(solutionRepository);
+        verifyNoInteractions(gradeRepository);
     }
 }
