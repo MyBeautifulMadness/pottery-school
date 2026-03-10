@@ -1,11 +1,8 @@
 package com.example.PotteryPotSchool.controller;
 
-import com.example.PotteryPotSchool.dto.Solutions.SolutionDto;
-import com.example.PotteryPotSchool.dto.Solutions.SolutionSummaryDto;
+import com.example.PotteryPotSchool.dto.Solutions.*;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
 import com.example.PotteryPotSchool.security.UserPrincipal;
-import com.example.PotteryPotSchool.dto.Solutions.Solution;
-import com.example.PotteryPotSchool.dto.Solutions.SolutionUpsertRequest;
 import com.example.PotteryPotSchool.service.Solutions.SolutionService;
 import io.swagger.v3.oas.annotations.Operation;
 
@@ -50,6 +47,14 @@ public class SolutionController {
             @AuthenticationPrincipal UserPrincipal user
     ) {
         return solutionService.getMySolution(postId, user.getId());
+    }
+
+    @GetMapping("/solutions/{solutionId}")
+    public SolutionDetailsDto getSolution(
+            @RequestHeader("Authorization") String token,
+            @PathVariable UUID solutionId
+    ) {
+        return solutionService.getSolution(token, solutionId);
     }
 }
 

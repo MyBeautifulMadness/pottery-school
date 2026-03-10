@@ -3,10 +3,9 @@ package com.example.PotteryPotSchool.service.Solutions.impl;
 import com.example.PotteryPotSchool.config.BadRequestException;
 import com.example.PotteryPotSchool.config.ForbiddenException;
 import com.example.PotteryPotSchool.config.NotFoundException;
-import com.example.PotteryPotSchool.dto.Solutions.SolutionDto;
-import com.example.PotteryPotSchool.dto.Solutions.SolutionSummaryDto;
-import com.example.PotteryPotSchool.dto.Solutions.Solution;
-import com.example.PotteryPotSchool.dto.Solutions.SolutionUpsertRequest;
+import com.example.PotteryPotSchool.config.UnauthorizedException;
+import com.example.PotteryPotSchool.dto.Grades.GradeDto;
+import com.example.PotteryPotSchool.dto.Solutions.*;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
@@ -14,12 +13,13 @@ import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
 import com.example.PotteryPotSchool.enums.Users.Role;
+import com.example.PotteryPotSchool.repository.GradeRepository;
 import com.example.PotteryPotSchool.repository.PostRepository;
 import com.example.PotteryPotSchool.repository.SolutionRepository;
 import com.example.PotteryPotSchool.repository.UserRepository;
+import com.example.PotteryPotSchool.service.Login.JwtService;
 import com.example.PotteryPotSchool.service.Me.MeService;
 import com.example.PotteryPotSchool.security.UserPrincipal;
-import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.service.Solutions.SolutionMapper;
 import com.example.PotteryPotSchool.service.Solutions.SolutionService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +38,8 @@ public class SolutionServiceImpl implements SolutionService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final MeService meService;
+    private final JwtService jwtService;
+    private final GradeRepository gradeRepository;
 
     @Override
     public Solution createOrUpdate(UUID postId, SolutionUpsertRequest request) {
@@ -160,5 +162,56 @@ public class SolutionServiceImpl implements SolutionService {
                 .orElseThrow(() -> new NotFoundException("Solution not found"));
 
         return solutionMapper.toDto(solution);
+    }
+
+    @Override
+    public SolutionDetailsDto getSolution(String token, UUID solutionId) {
+
+        if (token == null) {
+            throw new UnauthorizedException("Invalid token");
+        }
+
+        if (token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+
+        if (!jwtService.isTokenValid(token)) {
+            throw new UnauthorizedException("Invalid token");
+        }
+
+        UserPrincipal user = jwtService.extractUserPrincipal(token);
+
+        SolutionEntity solution = solutionRepository.findById(solutionId)
+                .orElseThrow(() -> new NotFoundException("Solution not found"));
+
+        if (user.getRole() == Role.STUDENT &&
+                !solution.getStudentId().equals(user.getId())) {
+            throw new ForbiddenException("Access denied");
+        }
+
+        GradeDto gradeDto = gradeRepository.findBySolution_Id(solutionId)
+                .map(grade -> GradeDto.builder()
+                        .solutionId(solutionId)
+                        .score(grade.getScore())
+                        .teacherComment(grade.getTeacherComment())
+                        .gradedAt(grade.getGradedAt())
+                        .teacherId(grade.getTeacherId())
+                        .build()
+                )
+                .orElse(null);
+
+        return SolutionDetailsDto.builder()
+                .id(solution.getId())
+                .postId(solution.getPost().getId())
+                .studentId(solution.getStudentId())
+                .status(solution.getStatus())
+                .text(solution.getText())
+                .videoUrl(solution.getVideoUrl())
+                .attachmentUrl(solution.getAttachmentUrl())
+                .createdAt(solution.getCreatedAt())
+                .updatedAt(solution.getUpdatedAt())
+                .submittedAt(solution.getSubmittedAt())
+                .grade(gradeDto)
+                .build();
     }
 }
