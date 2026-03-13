@@ -10,6 +10,7 @@ public class CommentDetails {
     private UUID id;
     private UUID postId;
     private UUID authorId;
+    private String authorName;
     private String body;
     private LocalDateTime createdAt;
 }

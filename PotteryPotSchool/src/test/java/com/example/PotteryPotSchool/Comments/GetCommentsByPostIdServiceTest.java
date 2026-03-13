@@ -7,9 +7,11 @@ import com.example.PotteryPotSchool.dto.Comments.CommentDetails;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Comments.CommentEntity;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
+import com.example.PotteryPotSchool.entity.Profiles.ProfileEntity;
 import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.repository.CommentRepository;
 import com.example.PotteryPotSchool.repository.PostRepository;
+import com.example.PotteryPotSchool.repository.ProfileRepository;
 import com.example.PotteryPotSchool.service.Comments.CommentsService;
 import com.example.PotteryPotSchool.service.Comments.impl.CommentServiceImpl;
 import com.example.PotteryPotSchool.service.Me.MeService;
@@ -37,6 +39,9 @@ public class GetCommentsByPostIdServiceTest {
     private PostRepository postRepository;
 
     @Mock
+    private ProfileRepository profileRepository;
+
+    @Mock
     private MeService meService;
 
     @InjectMocks
@@ -50,10 +55,13 @@ public class GetCommentsByPostIdServiceTest {
 
         PostEntity post = PostEntity.builder().id(postId).title("Пост").description("Описание").build();
 
+        UUID author1Id = UUID.randomUUID();
+        UUID author2Id = UUID.randomUUID();
+
         CommentEntity comment1 = CommentEntity.builder()
                 .id(UUID.randomUUID())
                 .postId(postId)
-                .authorId(UUID.randomUUID())
+                .authorId(author1Id)
                 .body("Первый комментарий")
                 .createdAt(LocalDateTime.of(2026, 3, 10, 10, 0))
                 .build();
@@ -61,14 +69,28 @@ public class GetCommentsByPostIdServiceTest {
         CommentEntity comment2 = CommentEntity.builder()
                 .id(UUID.randomUUID())
                 .postId(postId)
-                .authorId(UUID.randomUUID())
+                .authorId(author2Id)
                 .body("Второй комментарий")
                 .createdAt(LocalDateTime.of(2026, 3, 10, 11, 0))
+                .build();
+
+        ProfileEntity profile1 = ProfileEntity.builder()
+                .userId(author1Id)
+                .fullName("Иван Иванов")
+                .about("Обо мне 1")
+                .build();
+
+        ProfileEntity profile2 = ProfileEntity.builder()
+                .userId(author2Id)
+                .fullName("Мария Петрова")
+                .about("Обо мне 2")
                 .build();
 
         when(meService.getMe()).thenReturn(student);
         when(postRepository.findById(postId)).thenReturn(Optional.of(post));
         when(commentRepository.findAllByPostId(postId)).thenReturn(List.of(comment1, comment2));
+        when(profileRepository.findById(author1Id)).thenReturn(Optional.of(profile1));
+        when(profileRepository.findById(author2Id)).thenReturn(Optional.of(profile2));
 
         List<CommentDetails> result = commentService.getByPostId(postId);
 
@@ -79,6 +101,7 @@ public class GetCommentsByPostIdServiceTest {
         assertEquals(comment1.getId(), first.getId());
         assertEquals(postId, first.getPostId());
         assertEquals(comment1.getAuthorId(), first.getAuthorId());
+        assertEquals("Иван Иванов", first.getAuthorName());
         assertEquals("Первый комментарий", first.getBody());
         assertEquals(comment1.getCreatedAt(), first.getCreatedAt());
 
@@ -86,12 +109,15 @@ public class GetCommentsByPostIdServiceTest {
         assertEquals(comment2.getId(), second.getId());
         assertEquals(postId, second.getPostId());
         assertEquals(comment2.getAuthorId(), second.getAuthorId());
+        assertEquals("Мария Петрова", second.getAuthorName());
         assertEquals("Второй комментарий", second.getBody());
         assertEquals(comment2.getCreatedAt(), second.getCreatedAt());
 
         verify(meService).getMe();
         verify(postRepository).findById(postId);
         verify(commentRepository).findAllByPostId(postId);
+        verify(profileRepository).findById(author1Id);
+        verify(profileRepository).findById(author2Id);
     }
 
     @Test
@@ -122,6 +148,7 @@ public class GetCommentsByPostIdServiceTest {
         verify(meService).getMe();
         verify(postRepository).findById(postId);
         verify(commentRepository).findAllByPostId(postId);
+        verifyNoInteractions(profileRepository);
     }
 
     @Test
@@ -135,6 +162,8 @@ public class GetCommentsByPostIdServiceTest {
         verify(meService).getMe();
         verifyNoInteractions(postRepository);
         verifyNoInteractions(commentRepository);
+        verifyNoInteractions(profileRepository);
+
     }
 
     @Test
@@ -155,5 +184,6 @@ public class GetCommentsByPostIdServiceTest {
         verify(meService).getMe();
         verify(postRepository).findById(postId);
         verifyNoInteractions(commentRepository);
+        verifyNoInteractions(profileRepository);
     }
 }
