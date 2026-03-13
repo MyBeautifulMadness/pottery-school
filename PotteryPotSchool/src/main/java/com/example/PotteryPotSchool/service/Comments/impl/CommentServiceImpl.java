@@ -7,9 +7,11 @@ import com.example.PotteryPotSchool.dto.Comments.CommentCreateRequest;
 import com.example.PotteryPotSchool.dto.Comments.CommentDetails;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Comments.CommentEntity;
+import com.example.PotteryPotSchool.entity.Profiles.ProfileEntity;
 import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.repository.CommentRepository;
 import com.example.PotteryPotSchool.repository.PostRepository;
+import com.example.PotteryPotSchool.repository.ProfileRepository;
 import com.example.PotteryPotSchool.service.Comments.CommentsService;
 import com.example.PotteryPotSchool.service.Me.MeService;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class CommentServiceImpl implements CommentsService {
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
     private final MeService meService;
+    private final ProfileRepository profileRepository;
 
     @Override
     public CommentDetails create(UUID postId, CommentCreateRequest request) {
@@ -82,10 +85,12 @@ public class CommentServiceImpl implements CommentsService {
     }
 
     private CommentDetails mapToDetails(CommentEntity comment) {
+        ProfileEntity profile = profileRepository.findById(comment.getAuthorId()).orElseThrow(() -> new NotFoundException("Имя автора не найдено: " + comment.getAuthorId()));
         CommentDetails details = new CommentDetails();
         details.setId(comment.getId());
         details.setPostId(comment.getPostId());
         details.setAuthorId(comment.getAuthorId());
+        details.setAuthorName(profile.getFullName());
         details.setBody(comment.getBody());
         details.setCreatedAt(comment.getCreatedAt());
         return details;
