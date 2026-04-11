@@ -5,6 +5,7 @@ import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
 import com.example.PotteryPotSchool.dto.Teams.Team;
 import com.example.PotteryPotSchool.dto.Teams.TeamCreateRequest;
 import com.example.PotteryPotSchool.dto.Teams.TeamSummary;
+import com.example.PotteryPotSchool.dto.Teams.TeamUpdateRequest;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.entity.Teams.TeamEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
@@ -122,6 +123,57 @@ public class TeamServiceImpl implements TeamService {
         }
 
         return mapToTeam(team);
+    }
+
+    @Override
+    @Transactional
+    public Team updateTeam(UUID postId, UUID teamId, TeamUpdateRequest request) {
+        User currentUser = meService.getMe();
+        if (currentUser.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Только преподаватель может редактировать команды");
+        }
+
+        if (request == null) {
+            throw new BadRequestException("Тело запроса обязательно");
+        }
+
+        PostEntity post = getTeamTaskPost(postId);
+
+        TeamEntity team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new NotFoundException("Команда не найдена"));
+
+        if (!team.getPost().getId().equals(post.getId())) {
+            throw new NotFoundException("Команда не принадлежит этому заданию");
+        }
+
+        if (request.getName() != null) {
+            String trimmedName = request.getName().trim();
+            if (trimmedName.isEmpty()) {
+                throw new BadRequestException("Название команды не может быть пустым");
+            }
+            team.setName(trimmedName);
+        }
+
+        if (request.getCaptainId() != null) {
+            UserEntity captain = userRepository.findById(request.getCaptainId())
+                    .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + request.getCaptainId()));
+
+            if (captain.getRole() != Role.STUDENT) {
+                throw new BadRequestException("Капитаном команды может быть только студент");
+            }
+
+            boolean isMember = team.getMembers() != null &&
+                    team.getMembers().stream().anyMatch(member -> member.getId().equals(captain.getId()));
+
+            if (!isMember) {
+                throw new BadRequestException("Капитан должен быть участником команды");
+            }
+
+            team.setCaptain(captain);
+        }
+
+        TeamEntity saved = teamRepository.save(team);
+        return mapToTeam(saved);
     }
 
     private PostEntity getTeamTaskPost(UUID postId) {

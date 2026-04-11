@@ -3,6 +3,7 @@ package com.example.PotteryPotSchool.controller;
 import com.example.PotteryPotSchool.dto.Teams.Team;
 import com.example.PotteryPotSchool.dto.Teams.TeamCreateRequest;
 import com.example.PotteryPotSchool.dto.Teams.TeamSummary;
+import com.example.PotteryPotSchool.dto.Teams.TeamUpdateRequest;
 import com.example.PotteryPotSchool.service.Teams.TeamService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -32,5 +33,12 @@ public class TeamController {
     public Team getTeamById(@PathVariable UUID postId,
                             @PathVariable UUID teamId) {
         return teamService.getTeamById(postId, teamId);
+    }
+
+    @PatchMapping("/{teamId}")
+    public Team updateTeam(@PathVariable UUID postId,
+                           @PathVariable UUID teamId,
+                           @RequestBody TeamUpdateRequest request) {
+        return teamService.updateTeam(postId, teamId, request);
     }
 }
