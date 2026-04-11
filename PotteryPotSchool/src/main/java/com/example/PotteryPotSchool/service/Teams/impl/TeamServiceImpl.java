@@ -2,10 +2,7 @@ package com.example.PotteryPotSchool.service.Teams.impl;
 
 import com.example.PotteryPotSchool.config.BadRequestException;
 import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
-import com.example.PotteryPotSchool.dto.Teams.Team;
-import com.example.PotteryPotSchool.dto.Teams.TeamCreateRequest;
-import com.example.PotteryPotSchool.dto.Teams.TeamSummary;
-import com.example.PotteryPotSchool.dto.Teams.TeamUpdateRequest;
+import com.example.PotteryPotSchool.dto.Teams.*;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.entity.Teams.TeamEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
@@ -265,6 +262,87 @@ public class TeamServiceImpl implements TeamService {
         }
 
         teamRepository.save(team);
+    }
+
+    @Override
+    @Transactional
+    public List<Team> manuallyDistributeStudents(UUID postId, ManualTeamDistributionRequest request) {
+        User currentUser = meService.getMe();
+        if (currentUser.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Только преподаватель может распределять студентов по командам");
+        }
+
+        PostEntity post = getTeamTaskPost(postId);
+
+        if (request == null || request.getItems() == null) {
+            throw new BadRequestException("Список распределения обязателен");
+        }
+
+        List<TeamEntity> teams = teamRepository.findAllByPost_IdOrderByCreatedAtAsc(postId);
+
+        java.util.Map<UUID, TeamEntity> teamsById = teams.stream()
+                .collect(java.util.stream.Collectors.toMap(TeamEntity::getId, team -> team));
+
+        java.util.Set<UUID> usedStudentIds = new java.util.HashSet<>();
+
+        for (ManualTeamDistributionItem item : request.getItems()) {
+            if (item.getTeamId() == null) {
+                throw new BadRequestException("teamId обязателен");
+            }
+
+            TeamEntity team = teamsById.get(item.getTeamId());
+            if (team == null) {
+                throw new NotFoundException("Команда не найдена или не принадлежит заданию: " + item.getTeamId());
+            }
+
+            if (item.getStudentIds() == null) {
+                continue;
+            }
+
+            for (UUID studentId : item.getStudentIds()) {
+                if (!usedStudentIds.add(studentId)) {
+                    throw new BadRequestException("Один и тот же студент не может быть распределён в несколько команд");
+                }
+
+                UserEntity student = userRepository.findById(studentId)
+                        .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + studentId));
+
+                if (student.getRole() != Role.STUDENT) {
+                    throw new BadRequestException("В команду можно распределять только студентов");
+                }
+            }
+        }
+
+        for (TeamEntity team : teams) {
+            if (team.getMembers() == null) {
+                team.setMembers(new java.util.LinkedHashSet<>());
+            } else {
+                team.getMembers().clear();
+            }
+
+            if (team.getCaptain() != null) {
+                team.setCaptain(null);
+            }
+        }
+
+        for (ManualTeamDistributionItem item : request.getItems()) {
+            TeamEntity team = teamsById.get(item.getTeamId());
+            if (item.getStudentIds() == null || item.getStudentIds().isEmpty()) {
+                continue;
+            }
+
+            for (UUID studentId : item.getStudentIds()) {
+                UserEntity student = userRepository.findById(studentId)
+                        .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + studentId));
+                team.getMembers().add(student);
+            }
+        }
+
+        List<TeamEntity> savedTeams = teamRepository.saveAll(teams);
+
+        return savedTeams.stream()
+                .map(this::mapToTeam)
+                .toList();
     }
 
     private void ensureStudentCanBeAddedToTeam(UUID postId, UUID teamId, UUID studentId) {

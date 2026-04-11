@@ -1,9 +1,6 @@
 package com.example.PotteryPotSchool.controller;
 
-import com.example.PotteryPotSchool.dto.Teams.Team;
-import com.example.PotteryPotSchool.dto.Teams.TeamCreateRequest;
-import com.example.PotteryPotSchool.dto.Teams.TeamSummary;
-import com.example.PotteryPotSchool.dto.Teams.TeamUpdateRequest;
+import com.example.PotteryPotSchool.dto.Teams.*;
 import com.example.PotteryPotSchool.service.Teams.TeamService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -60,5 +57,11 @@ public class TeamController {
                                       @PathVariable UUID teamId,
                                       @PathVariable UUID studentId) {
         teamService.removeStudentFromTeam(postId, teamId, studentId);
+    }
+
+    @PostMapping("/distribute/manual")
+    public List<Team> manuallyDistributeStudents(@PathVariable UUID postId,
+                                                 @RequestBody ManualTeamDistributionRequest request) {
+        return teamService.manuallyDistributeStudents(postId, request);
     }
 }

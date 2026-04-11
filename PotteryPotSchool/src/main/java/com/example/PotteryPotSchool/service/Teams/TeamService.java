@@ -1,9 +1,6 @@
 package com.example.PotteryPotSchool.service.Teams;
 
-import com.example.PotteryPotSchool.dto.Teams.Team;
-import com.example.PotteryPotSchool.dto.Teams.TeamCreateRequest;
-import com.example.PotteryPotSchool.dto.Teams.TeamSummary;
-import com.example.PotteryPotSchool.dto.Teams.TeamUpdateRequest;
+import com.example.PotteryPotSchool.dto.Teams.*;
 
 import java.util.List;
 import java.util.UUID;
@@ -16,4 +13,5 @@ public interface TeamService {
     void deleteTeam(UUID postId, UUID teamId);
     Team addStudentToTeam(UUID postId, UUID teamId, UUID studentId);
     void removeStudentFromTeam(UUID postId, UUID teamId, UUID studentId);
+    List<Team> manuallyDistributeStudents(UUID postId, ManualTeamDistributionRequest request);
 }
