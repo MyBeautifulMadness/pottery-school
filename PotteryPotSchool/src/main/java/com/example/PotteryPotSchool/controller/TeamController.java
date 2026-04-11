@@ -41,4 +41,10 @@ public class TeamController {
                            @RequestBody TeamUpdateRequest request) {
         return teamService.updateTeam(postId, teamId, request);
     }
+
+    @DeleteMapping("/{teamId}")
+    public void deleteTeam(@PathVariable UUID postId,
+                           @PathVariable UUID teamId) {
+        teamService.deleteTeam(postId, teamId);
+    }
 }

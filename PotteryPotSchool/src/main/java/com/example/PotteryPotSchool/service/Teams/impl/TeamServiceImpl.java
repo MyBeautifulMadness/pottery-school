@@ -176,6 +176,26 @@ public class TeamServiceImpl implements TeamService {
         return mapToTeam(saved);
     }
 
+    @Override
+    @Transactional
+    public void deleteTeam(UUID postId, UUID teamId) {
+        User currentUser = meService.getMe();
+        if (currentUser.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Только преподаватель может удалять команды");
+        }
+
+        PostEntity post = getTeamTaskPost(postId);
+
+        TeamEntity team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new NotFoundException("Команда не найдена"));
+
+        if (!team.getPost().getId().equals(post.getId())) {
+            throw new NotFoundException("Команда не принадлежит этому заданию");
+        }
+
+        teamRepository.delete(team);
+    }
+
     private PostEntity getTeamTaskPost(UUID postId) {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new NotFoundException("Пост не найден"));
