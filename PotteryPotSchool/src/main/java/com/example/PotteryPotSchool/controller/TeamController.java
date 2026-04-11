@@ -64,4 +64,15 @@ public class TeamController {
                                                  @RequestBody ManualTeamDistributionRequest request) {
         return teamService.manuallyDistributeStudents(postId, request);
     }
+
+    @PostMapping("/distribute/random")
+    public List<Team> randomlyDistributeStudents(@PathVariable UUID postId) {
+        return teamService.randomlyDistributeStudents(postId);
+    }
+
+    @PostMapping("/distribute")
+    public List<Team> distributeStudents(@PathVariable UUID postId,
+                                         @RequestBody TeamDistributionRequest request) {
+        return teamService.distributeStudents(postId, request);
+    }
 }

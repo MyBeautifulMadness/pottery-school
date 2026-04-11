@@ -345,6 +345,70 @@ public class TeamServiceImpl implements TeamService {
                 .toList();
     }
 
+    @Override
+    @Transactional
+    public List<Team> randomlyDistributeStudents(UUID postId) {
+        User currentUser = meService.getMe();
+        if (currentUser.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Только преподаватель может случайно распределять студентов по командам");
+        }
+
+        PostEntity post = getTeamTaskPost(postId);
+
+        List<TeamEntity> teams = teamRepository.findAllByPost_IdOrderByCreatedAtAsc(postId);
+        if (teams.isEmpty()) {
+            throw new BadRequestException("Для задания нет команд для распределения");
+        }
+
+        List<UserEntity> students = new java.util.ArrayList<>(userRepository.findAllByRole(Role.STUDENT));
+        java.util.Collections.shuffle(students);
+
+        for (TeamEntity team : teams) {
+            if (team.getMembers() == null) {
+                team.setMembers(new java.util.LinkedHashSet<>());
+            } else {
+                team.getMembers().clear();
+            }
+            team.setCaptain(null);
+        }
+
+        for (int i = 0; i < students.size(); i++) {
+            TeamEntity team = teams.get(i % teams.size());
+            team.getMembers().add(students.get(i));
+        }
+
+        List<TeamEntity> savedTeams = teamRepository.saveAll(teams);
+
+        return savedTeams.stream()
+                .map(this::mapToTeam)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public List<Team> distributeStudents(UUID postId, TeamDistributionRequest request) {
+        User currentUser = meService.getMe();
+        if (currentUser.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Только преподаватель может распределять студентов по командам");
+        }
+
+        if (request == null || request.getStrategy() == null) {
+            throw new BadRequestException("strategy обязателен");
+        }
+
+        return switch (request.getStrategy()) {
+            case RANDOM -> randomlyDistributeStudents(postId);
+
+            case MANUAL -> throw new BadRequestException(
+                    "Для ручного распределения используйте endpoint /posts/{postId}/teams/distribute/manual"
+            );
+
+            case SELF_SELECTION -> throw new BadRequestException(
+                    "Для SELF_SELECTION студенты должны самостоятельно вступать в команды через join/leave"
+            );
+        };
+    }
+
     private void ensureStudentCanBeAddedToTeam(UUID postId, UUID teamId, UUID studentId) {
         List<TeamEntity> teams = teamRepository.findAllByPost_IdOrderByCreatedAtAsc(postId);
 
