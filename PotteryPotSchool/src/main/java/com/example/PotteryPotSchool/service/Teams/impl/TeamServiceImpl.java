@@ -196,6 +196,61 @@ public class TeamServiceImpl implements TeamService {
         teamRepository.delete(team);
     }
 
+    @Override
+    @Transactional
+    public Team addStudentToTeam(UUID postId, UUID teamId, UUID studentId) {
+        User currentUser = meService.getMe();
+        if (currentUser.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Только преподаватель может добавлять участников в команду");
+        }
+
+        PostEntity post = getTeamTaskPost(postId);
+
+        TeamEntity team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new NotFoundException("Команда не найдена"));
+
+        if (!team.getPost().getId().equals(post.getId())) {
+            throw new NotFoundException("Команда не принадлежит этому заданию");
+        }
+
+        UserEntity student = userRepository.findById(studentId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + studentId));
+
+        if (student.getRole() != Role.STUDENT) {
+            throw new BadRequestException("Участником команды может быть только студент");
+        }
+
+        ensureStudentCanBeAddedToTeam(postId, teamId, studentId);
+
+        if (team.getMembers() == null) {
+            team.setMembers(new java.util.LinkedHashSet<>());
+        }
+
+        team.getMembers().add(student);
+
+        TeamEntity saved = teamRepository.save(team);
+        return mapToTeam(saved);
+    }
+
+    private void ensureStudentCanBeAddedToTeam(UUID postId, UUID teamId, UUID studentId) {
+        List<TeamEntity> teams = teamRepository.findAllByPost_IdOrderByCreatedAtAsc(postId);
+
+        for (TeamEntity existingTeam : teams) {
+            boolean alreadyMember = existingTeam.getMembers() != null &&
+                    existingTeam.getMembers().stream().anyMatch(member -> member.getId().equals(studentId));
+
+            if (!alreadyMember) {
+                continue;
+            }
+
+            if (existingTeam.getId().equals(teamId)) {
+                throw new BadRequestException("Студент уже состоит в этой команде");
+            }
+
+            throw new BadRequestException("Студент уже состоит в другой команде этого задания");
+        }
+    }
+
     private PostEntity getTeamTaskPost(UUID postId) {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new NotFoundException("Пост не найден"));

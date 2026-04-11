@@ -47,4 +47,11 @@ public class TeamController {
                            @PathVariable UUID teamId) {
         teamService.deleteTeam(postId, teamId);
     }
+
+    @PostMapping("/{teamId}/members/{studentId}")
+    public Team addStudentToTeam(@PathVariable UUID postId,
+                                 @PathVariable UUID teamId,
+                                 @PathVariable UUID studentId) {
+        return teamService.addStudentToTeam(postId, teamId, studentId);
+    }
 }

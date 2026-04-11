@@ -14,4 +14,5 @@ public interface TeamService {
     Team getTeamById(UUID postId, UUID teamId);
     Team updateTeam(UUID postId, UUID teamId, TeamUpdateRequest request);
     void deleteTeam(UUID postId, UUID teamId);
+    Team addStudentToTeam(UUID postId, UUID teamId, UUID studentId);
 }
