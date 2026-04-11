@@ -10,4 +10,5 @@ import java.util.UUID;
 public interface TeamService {
     List<TeamSummary> getTeamsByPostId(UUID postId);
     Team createTeam(UUID postId, TeamCreateRequest request);
+    Team getTeamById(UUID postId, UUID teamId);
 }

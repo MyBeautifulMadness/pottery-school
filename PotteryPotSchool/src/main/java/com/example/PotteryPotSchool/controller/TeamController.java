@@ -27,4 +27,10 @@ public class TeamController {
                            @RequestBody TeamCreateRequest request) {
         return teamService.createTeam(postId, request);
     }
+
+    @GetMapping("/{teamId}")
+    public Team getTeamById(@PathVariable UUID postId,
+                            @PathVariable UUID teamId) {
+        return teamService.getTeamById(postId, teamId);
+    }
 }
