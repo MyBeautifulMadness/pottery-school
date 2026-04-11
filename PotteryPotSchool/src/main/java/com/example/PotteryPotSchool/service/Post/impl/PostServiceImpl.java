@@ -16,6 +16,9 @@ import com.example.PotteryPotSchool.repository.PostRepository;
 import com.example.PotteryPotSchool.repository.SolutionRepository;
 import com.example.PotteryPotSchool.service.Me.MeService;
 import com.example.PotteryPotSchool.service.Post.PostService;
+import com.example.PotteryPotSchool.entity.Teams.TeamEntity;
+import com.example.PotteryPotSchool.enums.Posts.TaskMode;
+import com.example.PotteryPotSchool.repository.TeamRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -36,8 +39,10 @@ public class PostServiceImpl implements PostService {
     private final CommentRepository commentRepository;
     private final SolutionRepository solutionRepository;
     private final GradeRepository gradeRepository;
+    private final TeamRepository teamRepository;
 
     @Override
+    @Transactional
     public PostDetails createPost(PostCreateRequest request) {
         User currentUser = meService.getMe();
 
@@ -68,6 +73,9 @@ public class PostServiceImpl implements PostService {
         }
 
         PostEntity savedPost = postRepository.save(post);
+
+        autoCreateTeamsIfNeeded(savedPost);
+
         return mapToPostDetails(savedPost);
     }
 
@@ -348,5 +356,40 @@ public class PostServiceImpl implements PostService {
         details.setCreatedAt(post.getCreatedAt());
         details.setUpdatedAt(post.getUpdatedAt());
         return details;
+    }
+
+    private void autoCreateTeamsIfNeeded(PostEntity post) {
+        if (post.getType() != PostType.TASK || post.getTask() == null) {
+            return;
+        }
+
+        TaskEntity task = post.getTask();
+
+        if (task.getMode() != TaskMode.TEAM) {
+            return;
+        }
+
+        Integer maxTeamsCount = task.getMaxTeamsCount();
+        if (maxTeamsCount == null || maxTeamsCount <= 0) {
+            return;
+        }
+
+        long existingTeams = teamRepository.countByPost_Id(post.getId());
+        if (existingTeams > 0) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for (int i = 1; i <= maxTeamsCount; i++) {
+            TeamEntity team = TeamEntity.builder()
+                    .post(post)
+                    .name("Team " + i)
+                    .captain(null)
+                    .createdAt(now)
+                    .build();
+
+            teamRepository.save(team);
+        }
     }
 }

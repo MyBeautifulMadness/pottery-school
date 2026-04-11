@@ -100,3 +100,33 @@ CREATE TABLE IF NOT EXISTS tasks (
         REFERENCES posts(id)
         ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS teams (
+    id UUID PRIMARY KEY,
+    post_id UUID NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    captain_id UUID,
+    created_at TIMESTAMP NOT NULL,
+    CONSTRAINT fk_teams_post
+        FOREIGN KEY (post_id)
+        REFERENCES posts(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_teams_captain
+        FOREIGN KEY (captain_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS team_members (
+    team_id UUID NOT NULL,
+    student_id UUID NOT NULL,
+    PRIMARY KEY (team_id, student_id),
+    CONSTRAINT fk_team_members_team
+        FOREIGN KEY (team_id)
+        REFERENCES teams(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_team_members_student
+        FOREIGN KEY (student_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+);
