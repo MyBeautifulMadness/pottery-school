@@ -75,4 +75,9 @@ public class TeamController {
                                          @RequestBody TeamDistributionRequest request) {
         return teamService.distributeStudents(postId, request);
     }
+
+    @GetMapping("/mine")
+    public Team getMyTeam(@PathVariable UUID postId) {
+        return teamService.getMyTeam(postId);
+    }
 }

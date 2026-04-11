@@ -17,7 +17,7 @@ import com.example.PotteryPotSchool.repository.UserRepository;
 import com.example.PotteryPotSchool.service.Me.MeService;
 import com.example.PotteryPotSchool.service.Teams.TeamService;
 import com.example.PotteryPotSchool.dto.Users.User;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -407,6 +407,27 @@ public class TeamServiceImpl implements TeamService {
                     "Для SELF_SELECTION студенты должны самостоятельно вступать в команды через join/leave"
             );
         };
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Team getMyTeam(UUID postId) {
+        User currentUser = meService.getMe();
+        if (currentUser.getRole() != Role.STUDENT) {
+            throw new ForbiddenException("Только студент может просматривать свою команду");
+        }
+
+        PostEntity post = getTeamTaskPost(postId);
+
+        List<TeamEntity> teams = teamRepository.findAllByPost_IdOrderByCreatedAtAsc(post.getId());
+
+        TeamEntity myTeam = teams.stream()
+                .filter(team -> team.getMembers() != null &&
+                        team.getMembers().stream().anyMatch(member -> member.getId().equals(currentUser.getId())))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Студент не состоит ни в одной команде этого задания"));
+
+        return mapToTeam(myTeam);
     }
 
     private void ensureStudentCanBeAddedToTeam(UUID postId, UUID teamId, UUID studentId) {

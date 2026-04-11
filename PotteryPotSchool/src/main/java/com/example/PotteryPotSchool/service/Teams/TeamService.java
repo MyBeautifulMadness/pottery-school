@@ -13,7 +13,10 @@ public interface TeamService {
     void deleteTeam(UUID postId, UUID teamId);
     Team addStudentToTeam(UUID postId, UUID teamId, UUID studentId);
     void removeStudentFromTeam(UUID postId, UUID teamId, UUID studentId);
+
     List<Team> manuallyDistributeStudents(UUID postId, ManualTeamDistributionRequest request);
     List<Team> randomlyDistributeStudents(UUID postId);
     List<Team> distributeStudents(UUID postId, TeamDistributionRequest request);
+
+    Team getMyTeam(UUID postId);
 }
