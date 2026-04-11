@@ -232,6 +232,41 @@ public class TeamServiceImpl implements TeamService {
         return mapToTeam(saved);
     }
 
+    @Override
+    @Transactional
+    public void removeStudentFromTeam(UUID postId, UUID teamId, UUID studentId) {
+        User currentUser = meService.getMe();
+        if (currentUser.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Только преподаватель может удалять участников из команды");
+        }
+
+        PostEntity post = getTeamTaskPost(postId);
+
+        TeamEntity team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new NotFoundException("Команда не найдена"));
+
+        if (!team.getPost().getId().equals(post.getId())) {
+            throw new NotFoundException("Команда не принадлежит этому заданию");
+        }
+
+        if (team.getMembers() == null || team.getMembers().isEmpty()) {
+            throw new BadRequestException("В команде нет участников");
+        }
+
+        UserEntity memberToRemove = team.getMembers().stream()
+                .filter(member -> member.getId().equals(studentId))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("Студент не состоит в этой команде"));
+
+        team.getMembers().remove(memberToRemove);
+
+        if (team.getCaptain() != null && team.getCaptain().getId().equals(studentId)) {
+            team.setCaptain(null);
+        }
+
+        teamRepository.save(team);
+    }
+
     private void ensureStudentCanBeAddedToTeam(UUID postId, UUID teamId, UUID studentId) {
         List<TeamEntity> teams = teamRepository.findAllByPost_IdOrderByCreatedAtAsc(postId);
 
