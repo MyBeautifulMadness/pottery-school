@@ -86,4 +86,10 @@ public class TeamController {
                          @PathVariable UUID teamId) {
         return teamService.joinTeam(postId, teamId);
     }
+
+    @PostMapping("/{teamId}/leave")
+    public Team leaveTeam(@PathVariable UUID postId,
+                          @PathVariable UUID teamId) {
+        return teamService.leaveTeam(postId, teamId);
+    }
 }

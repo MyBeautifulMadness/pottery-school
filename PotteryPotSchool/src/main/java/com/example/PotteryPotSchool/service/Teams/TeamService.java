@@ -20,4 +20,5 @@ public interface TeamService {
 
     Team getMyTeam(UUID postId);
     Team joinTeam(UUID postId, UUID teamId);
+    Team leaveTeam(UUID postId, UUID teamId);
 }

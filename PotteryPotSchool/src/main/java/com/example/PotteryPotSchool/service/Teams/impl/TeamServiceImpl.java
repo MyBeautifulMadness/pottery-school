@@ -477,6 +477,51 @@ public class TeamServiceImpl implements TeamService {
         return mapToTeam(saved);
     }
 
+    @Override
+    @Transactional
+    public Team leaveTeam(UUID postId, UUID teamId) {
+        User currentUser = meService.getMe();
+        if (currentUser.getRole() != Role.STUDENT) {
+            throw new ForbiddenException("Только студент может выходить из команды");
+        }
+
+        PostEntity post = getTeamTaskPost(postId);
+
+        if (post.getTask().getTeamDistributionType() != TeamDistributionType.SELF_SELECTION) {
+            throw new BadRequestException("Выход из команды доступен только для SELF_SELECTION");
+        }
+
+        if (post.getTask().getFormationDeadline() != null
+                && java.time.LocalDateTime.now().isAfter(post.getTask().getFormationDeadline())) {
+            throw new BadRequestException("Срок формирования команд истёк");
+        }
+
+        TeamEntity team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new NotFoundException("Команда не найдена"));
+
+        if (!team.getPost().getId().equals(post.getId())) {
+            throw new NotFoundException("Команда не принадлежит этому заданию");
+        }
+
+        if (team.getMembers() == null || team.getMembers().isEmpty()) {
+            throw new BadRequestException("В команде нет участников");
+        }
+
+        UserEntity student = team.getMembers().stream()
+                .filter(member -> member.getId().equals(currentUser.getId()))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("Студент не состоит в этой команде"));
+
+        team.getMembers().remove(student);
+
+        if (team.getCaptain() != null && team.getCaptain().getId().equals(currentUser.getId())) {
+            team.setCaptain(null);
+        }
+
+        TeamEntity saved = teamRepository.save(team);
+        return mapToTeam(saved);
+    }
+
     private void ensureStudentCanBeAddedToTeam(UUID postId, UUID teamId, UUID studentId) {
         List<TeamEntity> teams = teamRepository.findAllByPost_IdOrderByCreatedAtAsc(postId);
 
