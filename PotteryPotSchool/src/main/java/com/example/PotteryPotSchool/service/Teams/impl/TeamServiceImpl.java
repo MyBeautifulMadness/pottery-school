@@ -1,8 +1,13 @@
 package com.example.PotteryPotSchool.service.Teams.impl;
 
+import com.example.PotteryPotSchool.config.BadRequestException;
+import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
+import com.example.PotteryPotSchool.dto.Teams.Team;
+import com.example.PotteryPotSchool.dto.Teams.TeamCreateRequest;
 import com.example.PotteryPotSchool.dto.Teams.TeamSummary;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.entity.Teams.TeamEntity;
+import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
 import com.example.PotteryPotSchool.enums.Posts.TaskMode;
 import com.example.PotteryPotSchool.enums.Users.Role;
@@ -10,12 +15,17 @@ import com.example.PotteryPotSchool.exception.ForbiddenException;
 import com.example.PotteryPotSchool.exception.NotFoundException;
 import com.example.PotteryPotSchool.repository.PostRepository;
 import com.example.PotteryPotSchool.repository.TeamRepository;
+import com.example.PotteryPotSchool.repository.UserRepository;
 import com.example.PotteryPotSchool.service.Me.MeService;
 import com.example.PotteryPotSchool.service.Teams.TeamService;
 import com.example.PotteryPotSchool.dto.Users.User;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,6 +35,7 @@ public class TeamServiceImpl implements TeamService {
 
     private final TeamRepository teamRepository;
     private final PostRepository postRepository;
+    private final UserRepository userRepository;
     private final MeService meService;
 
     @Override
@@ -34,6 +45,67 @@ public class TeamServiceImpl implements TeamService {
             throw new ForbiddenException("Только преподаватель может просматривать список команд задания");
         }
 
+        PostEntity post = getTeamTaskPost(postId);
+
+        return teamRepository.findAllByPost_IdOrderByCreatedAtAsc(postId)
+                .stream()
+                .map(this::mapToSummary)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public Team createTeam(UUID postId, TeamCreateRequest request) {
+        User currentUser = meService.getMe();
+        if (currentUser.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Только преподаватель может создавать команды");
+        }
+
+        PostEntity post = getTeamTaskPost(postId);
+        validateCreateRequest(request);
+
+        LinkedHashSet<UserEntity> members = new LinkedHashSet<>();
+
+        if (request.getMemberIds() != null && !request.getMemberIds().isEmpty()) {
+            for (UUID memberId : request.getMemberIds()) {
+                UserEntity member = userRepository.findById(memberId)
+                        .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + memberId));
+
+                if (member.getRole() != Role.STUDENT) {
+                    throw new BadRequestException("Участником команды может быть только студент");
+                }
+
+                ensureStudentNotInAnotherTeam(postId, memberId);
+                members.add(member);
+            }
+        }
+
+        UserEntity captain = null;
+        if (request.getCaptainId() != null) {
+            captain = userRepository.findById(request.getCaptainId())
+                    .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + request.getCaptainId()));
+
+            if (captain.getRole() != Role.STUDENT) {
+                throw new BadRequestException("Капитаном команды может быть только студент");
+            }
+
+            ensureStudentNotInAnotherTeam(postId, captain.getId());
+            members.add(captain);
+        }
+
+        TeamEntity team = TeamEntity.builder()
+                .post(post)
+                .name(request.getName().trim())
+                .captain(captain)
+                .createdAt(LocalDateTime.now())
+                .members(members)
+                .build();
+
+        TeamEntity saved = teamRepository.save(team);
+        return mapToTeam(saved);
+    }
+
+    private PostEntity getTeamTaskPost(UUID postId) {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new NotFoundException("Пост не найден"));
 
@@ -45,10 +117,30 @@ public class TeamServiceImpl implements TeamService {
             throw new NotFoundException("Для данного задания команды недоступны");
         }
 
-        return teamRepository.findAllByPost_IdOrderByCreatedAtAsc(postId)
-                .stream()
-                .map(this::mapToSummary)
-                .toList();
+        return post;
+    }
+
+    private void validateCreateRequest(TeamCreateRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Тело запроса обязательно");
+        }
+
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new BadRequestException("Название команды обязательно");
+        }
+    }
+
+    private void ensureStudentNotInAnotherTeam(UUID postId, UUID studentId) {
+        List<TeamEntity> teams = teamRepository.findAllByPost_IdOrderByCreatedAtAsc(postId);
+
+        for (TeamEntity team : teams) {
+            boolean alreadyMember = team.getMembers() != null &&
+                    team.getMembers().stream().anyMatch(member -> member.getId().equals(studentId));
+
+            if (alreadyMember) {
+                throw new BadRequestException("Студент уже состоит в другой команде этого задания");
+            }
+        }
     }
 
     private TeamSummary mapToSummary(TeamEntity team) {
@@ -57,6 +149,29 @@ public class TeamServiceImpl implements TeamService {
         dto.setName(team.getName());
         dto.setMembersCount(team.getMembers() != null ? team.getMembers().size() : 0);
         dto.setCaptainId(team.getCaptain() != null ? team.getCaptain().getId() : null);
+        return dto;
+    }
+
+    private Team mapToTeam(TeamEntity team) {
+        Team dto = new Team();
+        dto.setId(team.getId());
+        dto.setPostId(team.getPost().getId());
+        dto.setName(team.getName());
+        dto.setCaptainId(team.getCaptain() != null ? team.getCaptain().getId() : null);
+        dto.setCreatedAt(team.getCreatedAt());
+
+        List<StudentSummaryDto> members = new ArrayList<>();
+        if (team.getMembers() != null) {
+            for (UserEntity member : team.getMembers()) {
+                StudentSummaryDto student = new StudentSummaryDto(
+                        member.getId(),
+                        null
+                );
+                members.add(student);
+            }
+        }
+
+        dto.setMembers(members);
         return dto;
     }
 }
