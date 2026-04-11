@@ -157,8 +157,20 @@ public class PostServiceImpl implements PostService {
             }
 
             if (request.getTask() != null) {
+                validateTaskUpdateRequest(request.getTask());
+
                 post.getTask().setDescription(request.getTask().getDescription());
                 post.getTask().setDeadline(request.getTask().getDeadline());
+                post.getTask().setMode(request.getTask().getMode());
+                post.getTask().setTeamDistributionType(request.getTask().getTeamDistributionType());
+                post.getTask().setPrioritySolution(request.getTask().getPrioritySolution());
+
+                TeamRules rules = request.getTask().getTeamRules();
+                post.getTask().setFormationDeadline(rules != null ? rules.getFormationDeadline() : null);
+                post.getTask().setMinTeamsCount(rules != null ? rules.getMinTeamsCount() : null);
+                post.getTask().setMaxTeamsCount(rules != null ? rules.getMaxTeamsCount() : null);
+                post.getTask().setMinMembersPerTeam(rules != null ? rules.getMinMembersPerTeam() : null);
+                post.getTask().setMaxMembersPerTeam(rules != null ? rules.getMaxMembersPerTeam() : null);
             }
         }
 
@@ -168,17 +180,85 @@ public class PostServiceImpl implements PostService {
         return mapToPostDetails(savedPost);
     }
 
+    private void validateTaskUpdateRequest(TaskUpdateRequest task) {
+        if (task.getMode() == null) {
+            throw new BadRequestException("Для задания mode обязателен");
+        }
+
+        if (task.getMode() == com.example.PotteryPotSchool.enums.Posts.TaskMode.SOLO) {
+            if (task.getTeamDistributionType() != null ||
+                    task.getTeamRules() != null ||
+                    task.getPrioritySolution() != null) {
+                throw new BadRequestException("Для SOLO задания teamDistributionType, teamRules и prioritySolution должны быть null");
+            }
+            return;
+        }
+
+        if (task.getTeamDistributionType() == null) {
+            throw new BadRequestException("Для TEAM задания teamDistributionType обязателен");
+        }
+        if (task.getPrioritySolution() == null) {
+            throw new BadRequestException("Для TEAM задания prioritySolution обязателен");
+        }
+
+        validateTeamRules(task.getTeamRules());
+    }
+
     private void validateCreateRequest(PostCreateRequest request) {
         if (request.getType() == PostType.MATERIAL) {
             if (request.getMaterial() == null || request.getTask() != null) {
                 throw new BadRequestException("Публикация МАТЕРИАЛОВ должна содержать только материалы");
             }
+            return;
         }
 
         if (request.getType() == PostType.TASK) {
             if (request.getTask() == null || request.getMaterial() != null) {
                 throw new BadRequestException("Публикация ЗАДАНИЙ должна содержать только задания");
             }
+
+            validateTaskRequest(request.getTask());
+        }
+    }
+
+    private void validateTaskRequest(TaskCreateRequest task) {
+        if (task.getMode() == null) {
+            throw new BadRequestException("Для задания mode обязателен");
+        }
+
+        if (task.getMode() == com.example.PotteryPotSchool.enums.Posts.TaskMode.SOLO) {
+            if (task.getTeamDistributionType() != null ||
+                    task.getTeamRules() != null ||
+                    task.getPrioritySolution() != null) {
+                throw new BadRequestException("Для SOLO задания teamDistributionType, teamRules и prioritySolution должны быть null");
+            }
+            return;
+        }
+
+        if (task.getMode() == com.example.PotteryPotSchool.enums.Posts.TaskMode.TEAM) {
+            if (task.getTeamDistributionType() == null) {
+                throw new BadRequestException("Для TEAM задания teamDistributionType обязателен");
+            }
+            if (task.getPrioritySolution() == null) {
+                throw new BadRequestException("Для TEAM задания prioritySolution обязателен");
+            }
+            validateTeamRules(task.getTeamRules());
+        }
+    }
+
+    private void validateTeamRules(TeamRules rules) {
+        if (rules == null) {
+            return;
+        }
+
+        if (rules.getMinTeamsCount() != null && rules.getMaxTeamsCount() != null
+                && rules.getMinTeamsCount() > rules.getMaxTeamsCount()) {
+            throw new BadRequestException("minTeamsCount не может быть больше maxTeamsCount");
+        }
+
+        if (rules.getMinMembersPerTeam() != null && rules.getMaxMembersPerTeam() != null
+                && rules.getMinMembersPerTeam() > rules.getMaxMembersPerTeam()) {
+            throw new BadRequestException("minMembersPerTeam не может быть больше maxMembersPerTeam");
         }
     }
 
@@ -193,9 +273,20 @@ public class PostServiceImpl implements PostService {
     }
 
     private TaskEntity mapToTaskEntity(TaskCreateRequest request, PostEntity post) {
+        TeamRules rules = request.getTeamRules();
+
         return TaskEntity.builder()
                 .description(request.getDescription())
                 .deadline(request.getDeadline())
+                .mode(request.getMode())
+                .teamDistributionType(request.getTeamDistributionType())
+                .formationDeadline(rules != null ? rules.getFormationDeadline() : null)
+                .minTeamsCount(rules != null ? rules.getMinTeamsCount() : null)
+                .maxTeamsCount(rules != null ? rules.getMaxTeamsCount() : null)
+                .minMembersPerTeam(rules != null ? rules.getMinMembersPerTeam() : null)
+                .maxMembersPerTeam(rules != null ? rules.getMaxMembersPerTeam() : null)
+                .prioritySolution(request.getPrioritySolution())
+                .selectedSolutionId(null)
                 .post(post)
                 .build();
     }
@@ -222,6 +313,26 @@ public class PostServiceImpl implements PostService {
             TaskDetails taskDetails = new TaskDetails();
             taskDetails.setDescription(post.getTask().getDescription());
             taskDetails.setDeadline(post.getTask().getDeadline());
+            taskDetails.setMode(post.getTask().getMode());
+            taskDetails.setTeamDistributionType(post.getTask().getTeamDistributionType());
+            taskDetails.setPrioritySolution(post.getTask().getPrioritySolution());
+            taskDetails.setSelectedSolutionId(post.getTask().getSelectedSolutionId());
+
+            TeamRules rules = new TeamRules();
+            rules.setFormationDeadline(post.getTask().getFormationDeadline());
+            rules.setMinTeamsCount(post.getTask().getMinTeamsCount());
+            rules.setMaxTeamsCount(post.getTask().getMaxTeamsCount());
+            rules.setMinMembersPerTeam(post.getTask().getMinMembersPerTeam());
+            rules.setMaxMembersPerTeam(post.getTask().getMaxMembersPerTeam());
+
+            if (rules.getFormationDeadline() != null ||
+                    rules.getMinTeamsCount() != null ||
+                    rules.getMaxTeamsCount() != null ||
+                    rules.getMinMembersPerTeam() != null ||
+                    rules.getMaxMembersPerTeam() != null) {
+                taskDetails.setTeamRules(rules);
+            }
+
             details.setTask(taskDetails);
         }
 

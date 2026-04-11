@@ -1,5 +1,8 @@
 package com.example.PotteryPotSchool.entity.Posts;
 
+import com.example.PotteryPotSchool.enums.Posts.PrioritySolution;
+import com.example.PotteryPotSchool.enums.Posts.TaskMode;
+import com.example.PotteryPotSchool.enums.Posts.TeamDistributionType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -26,6 +29,25 @@ public class TaskEntity {
     private String description;
 
     private LocalDateTime deadline;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TaskMode mode;
+
+    @Enumerated(EnumType.STRING)
+    private TeamDistributionType teamDistributionType;
+
+    private LocalDateTime formationDeadline;
+    private Integer minTeamsCount;
+    private Integer maxTeamsCount;
+    private Integer minMembersPerTeam;
+    private Integer maxMembersPerTeam;
+
+    @Enumerated(EnumType.STRING)
+    private PrioritySolution prioritySolution;
+
+    @Column(columnDefinition = "uuid")
+    private UUID selectedSolutionId;
 
     @OneToOne
     @JoinColumn(name = "post_id", nullable = false, unique = true)

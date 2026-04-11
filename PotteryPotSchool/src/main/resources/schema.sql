@@ -59,3 +59,44 @@ CREATE TABLE IF NOT EXISTS solutions (
         ON DELETE CASCADE,
     CONSTRAINT uk_solution_post_student UNIQUE (post_id, student_id)
 );
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'task_mode_enum') THEN
+        CREATE TYPE task_mode_enum AS ENUM ('SOLO', 'TEAM');
+    END IF;
+END$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'team_distribution_type_enum') THEN
+        CREATE TYPE team_distribution_type_enum AS ENUM ('MANUAL', 'RANDOM', 'SELF_SELECTION');
+    END IF;
+END$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'priority_solution_enum') THEN
+        CREATE TYPE priority_solution_enum AS ENUM ('CAPITAIN', 'LAST', 'FIRST', 'VOTING');
+    END IF;
+END$$;
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id UUID PRIMARY KEY,
+    description TEXT,
+    deadline TIMESTAMP,
+    mode task_mode_enum NOT NULL,
+    team_distribution_type team_distribution_type_enum,
+    formation_deadline TIMESTAMP,
+    min_teams_count INTEGER,
+    max_teams_count INTEGER,
+    min_members_per_team INTEGER,
+    max_members_per_team INTEGER,
+    priority_solution priority_solution_enum,
+    selected_solution_id UUID,
+    post_id UUID NOT NULL UNIQUE,
+    CONSTRAINT fk_tasks_post
+        FOREIGN KEY (post_id)
+        REFERENCES posts(id)
+        ON DELETE CASCADE
+);
