@@ -19,4 +19,5 @@ public interface TeamService {
     List<Team> distributeStudents(UUID postId, TeamDistributionRequest request);
 
     Team getMyTeam(UUID postId);
+    Team joinTeam(UUID postId, UUID teamId);
 }

@@ -80,4 +80,10 @@ public class TeamController {
     public Team getMyTeam(@PathVariable UUID postId) {
         return teamService.getMyTeam(postId);
     }
+
+    @PostMapping("/{teamId}/join")
+    public Team joinTeam(@PathVariable UUID postId,
+                         @PathVariable UUID teamId) {
+        return teamService.joinTeam(postId, teamId);
+    }
 }

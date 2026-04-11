@@ -8,6 +8,7 @@ import com.example.PotteryPotSchool.entity.Teams.TeamEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
 import com.example.PotteryPotSchool.enums.Posts.TaskMode;
+import com.example.PotteryPotSchool.enums.Posts.TeamDistributionType;
 import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.exception.ForbiddenException;
 import com.example.PotteryPotSchool.exception.NotFoundException;
@@ -428,6 +429,52 @@ public class TeamServiceImpl implements TeamService {
                 .orElseThrow(() -> new NotFoundException("Студент не состоит ни в одной команде этого задания"));
 
         return mapToTeam(myTeam);
+    }
+
+    @Override
+    @Transactional
+    public Team joinTeam(UUID postId, UUID teamId) {
+        User currentUser = meService.getMe();
+        if (currentUser.getRole() != Role.STUDENT) {
+            throw new ForbiddenException("Только студент может вступать в команду");
+        }
+
+        PostEntity post = getTeamTaskPost(postId);
+
+        if (post.getTask().getTeamDistributionType() != TeamDistributionType.SELF_SELECTION) {
+            throw new BadRequestException("Вступление в команду доступно только для SELF_SELECTION");
+        }
+
+        if (post.getTask().getFormationDeadline() != null
+                && java.time.LocalDateTime.now().isAfter(post.getTask().getFormationDeadline())) {
+            throw new BadRequestException("Срок формирования команд истёк");
+        }
+
+        TeamEntity team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new NotFoundException("Команда не найдена"));
+
+        if (!team.getPost().getId().equals(post.getId())) {
+            throw new NotFoundException("Команда не принадлежит этому заданию");
+        }
+
+        ensureStudentCanBeAddedToTeam(postId, teamId, currentUser.getId());
+
+        if (team.getMembers() == null) {
+            team.setMembers(new java.util.LinkedHashSet<>());
+        }
+
+        Integer maxMembersPerTeam = post.getTask().getMaxMembersPerTeam();
+        if (maxMembersPerTeam != null && team.getMembers().size() >= maxMembersPerTeam) {
+            throw new BadRequestException("Команда уже заполнена");
+        }
+
+        UserEntity student = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + currentUser.getId()));
+
+        team.getMembers().add(student);
+
+        TeamEntity saved = teamRepository.save(team);
+        return mapToTeam(saved);
     }
 
     private void ensureStudentCanBeAddedToTeam(UUID postId, UUID teamId, UUID studentId) {
