@@ -2,7 +2,6 @@ package com.example.PotteryPotSchool.Solutions;
 
 import com.example.PotteryPotSchool.config.NotFoundException;
 import com.example.PotteryPotSchool.config.UnauthorizedException;
-import com.example.PotteryPotSchool.dto.Solutions.SolutionDto;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
