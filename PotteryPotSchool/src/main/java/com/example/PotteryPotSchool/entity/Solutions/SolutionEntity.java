@@ -1,12 +1,10 @@
 package com.example.PotteryPotSchool.entity.Solutions;
 
+import com.example.PotteryPotSchool.enums.Solutions.SolutionOwnerType;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -28,11 +26,15 @@ public class SolutionEntity {
     @JoinColumn(name = "post_id", nullable = false)
     private PostEntity post;
 
-    @Column(name = "student_id", nullable = false)
+    @Column(nullable = false)
     private UUID studentId;
 
+    private UUID teamId;
+
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    private SolutionOwnerType ownerType;
+
+    @Enumerated(EnumType.STRING)
     private SolutionStatus status;
 
     @Column(columnDefinition = "TEXT")
@@ -42,12 +44,9 @@ public class SolutionEntity {
 
     private String attachmentUrl;
 
-    @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(nullable = false)
     private LocalDateTime updatedAt;
 
     private LocalDateTime submittedAt;
-
 }

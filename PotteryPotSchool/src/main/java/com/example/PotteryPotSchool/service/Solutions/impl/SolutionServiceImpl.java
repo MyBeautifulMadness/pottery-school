@@ -1,32 +1,31 @@
 package com.example.PotteryPotSchool.service.Solutions.impl;
 
-import com.example.PotteryPotSchool.config.BadRequestException;
-import com.example.PotteryPotSchool.config.ForbiddenException;
-import com.example.PotteryPotSchool.config.NotFoundException;
-import com.example.PotteryPotSchool.config.UnauthorizedException;
-import com.example.PotteryPotSchool.dto.Grades.GradeDto;
+import com.example.PotteryPotSchool.config.*;
 import com.example.PotteryPotSchool.dto.Solutions.*;
+import com.example.PotteryPotSchool.dto.Teams.Team;
 import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
-import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
-import com.example.PotteryPotSchool.entity.Users.UserEntity;
+import com.example.PotteryPotSchool.entity.Posts.TaskEntity;
+import com.example.PotteryPotSchool.entity.Solutions.*;
+import com.example.PotteryPotSchool.entity.Teams.TeamEntity;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
-import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
+import com.example.PotteryPotSchool.enums.Posts.PrioritySolution;
+import com.example.PotteryPotSchool.enums.Posts.TaskMode;
+import com.example.PotteryPotSchool.enums.Solutions.*;
 import com.example.PotteryPotSchool.enums.Users.Role;
-import com.example.PotteryPotSchool.repository.GradeRepository;
-import com.example.PotteryPotSchool.repository.PostRepository;
-import com.example.PotteryPotSchool.repository.SolutionRepository;
-import com.example.PotteryPotSchool.repository.UserRepository;
+import com.example.PotteryPotSchool.repository.*;
+import com.example.PotteryPotSchool.security.UserPrincipal;
 import com.example.PotteryPotSchool.service.Login.JwtService;
 import com.example.PotteryPotSchool.service.Me.MeService;
-import com.example.PotteryPotSchool.security.UserPrincipal;
-import com.example.PotteryPotSchool.service.Solutions.SolutionMapper;
-import com.example.PotteryPotSchool.service.Solutions.SolutionService;
+import com.example.PotteryPotSchool.service.Solutions.*;
+import com.example.PotteryPotSchool.service.Teams.TeamService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -34,184 +33,276 @@ import java.util.UUID;
 public class SolutionServiceImpl implements SolutionService {
 
     private final SolutionRepository solutionRepository;
-    private final SolutionMapper solutionMapper;
+    private final SolutionVoteRepository voteRepository;
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
     private final MeService meService;
+    private final SolutionMapper solutionMapper;
     private final JwtService jwtService;
-    private final GradeRepository gradeRepository;
+    private final TeamService teamService;
 
     @Override
-    public Solution createOrUpdate(UUID postId, SolutionUpsertRequest request) {
-        User currentUser = meService.getMe();
-        ensureStudent(currentUser);
+    public Solution create(UUID postId, SolutionCreateRequest request) {
+
+        User user = meService.getMe();
+        ensureStudent(user);
 
         PostEntity post = postRepository.findById(postId)
-                .orElseThrow(() -> new NotFoundException("Пост не найден: " + postId));
+                .orElseThrow(() -> new NotFoundException("Post not found"));
 
         if (post.getType() != PostType.TASK) {
-            throw new BadRequestException("Решение можно прикрепить только к посту типа TASK");
+            throw new BadRequestException("Only TASK");
         }
 
-        UserEntity student = userRepository.findById(currentUser.getId())
-                .orElseThrow(() -> new NotFoundException("Пользователь не найден: " + currentUser.getId()));
+        TaskEntity task = post.getTask();
+        boolean isTeam = task.getMode() == TaskMode.TEAM;
 
-        boolean submit = Boolean.TRUE.equals(request.getSubmit());
+        if (isTeam) {
+            UUID myTeamId = teamService.getMyTeam(postId).getId();
+            if (!myTeamId.equals(request.getTeamId())) {
+                throw new ForbiddenException("Wrong team");
+            }
+        } else {
+            if (solutionRepository.existsByPostIdAndStudentId(postId, user.getId())) {
+                throw new BadRequestException("Already exists");
+            }
+        }
+
         LocalDateTime now = LocalDateTime.now();
 
-        SolutionEntity solution = solutionRepository.findByPostIdAndStudentId(postId, currentUser.getId())
-                .orElseGet(() -> SolutionEntity.builder()
-                        .post(post)
-                        .studentId(currentUser.getId())
-                        .status(SolutionStatus.DRAFT)
-                        .createdAt(now)
-                        .build());
+        SolutionEntity solution = SolutionEntity.builder()
+                .post(post)
+                .studentId(user.getId())
+                .teamId(request.getTeamId())
+                .ownerType(isTeam ? SolutionOwnerType.TEAM : SolutionOwnerType.STUDENT)
+                .status(SolutionStatus.DRAFT)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
 
-        solution.setText(request.getText());
-        solution.setVideoUrl(request.getVideoUrl());
-        solution.setAttachmentUrl(request.getAttachmentUrl());
-        solution.setUpdatedAt(now);
+        apply(solution, request);
 
-        if (submit) {
+        if (Boolean.TRUE.equals(request.getSubmit())) {
             solution.setStatus(SolutionStatus.SUBMITTED);
             solution.setSubmittedAt(now);
         }
 
-        SolutionEntity saved = solutionRepository.save(solution);
-        return mapToDto(saved);
+        return solutionMapper.toDto(solutionRepository.save(solution));
+    }
+
+    @Override
+    public Solution getMySolution(UUID postId, UUID studentId) {
+        Optional<SolutionEntity> solution = solutionRepository.findByPostIdAndStudentId(postId, studentId);
+        if(solution.isPresent()){
+            return solutionMapper.toDto(solution.get());
+        }
+        else return null;
+    }
+
+    public List<SolutionSummaryDto> getTeamSolutions(UUID postId, UUID studentId) {
+
+        Team team = teamService.getMyTeam(postId);
+
+        return solutionRepository.findByPostId(postId)
+                .stream()
+                .filter(s -> team.getMembers().stream()
+                        .anyMatch(m -> m.getId().equals(s.getStudentId())))
+                .map(solutionMapper::toSummaryDto)
+                .toList();
+    }
+
+    @Override
+    public Solution getSelected(UUID postId) {
+
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new NotFoundException("Post not found"));
+
+        Team team = teamService.getMyTeam(postId);
+
+        PrioritySolution priority = post.getTask().getPrioritySolution();
+
+        List<SolutionEntity> solutions = solutionRepository.findByPostIdAndStatus(
+                postId, SolutionStatus.SUBMITTED
+        );
+
+        SolutionEntity result;
+
+        switch (priority) {
+
+            case CAPITAIN -> {
+
+                if (team.getCaptainId() == null) {
+                    result = null;
+                    break;
+                }
+
+                UUID captainId = team.getCaptainId();
+
+                result = solutions.stream()
+                        .filter(s -> captainId.equals(s.getStudentId()))
+                        .findFirst()
+                        .orElse(null);
+            }
+
+            case FIRST -> result = solutions.stream()
+                    .min(Comparator.comparing(SolutionEntity::getSubmittedAt))
+                    .orElse(null);
+
+            case LAST -> result = solutions.stream()
+                    .max(Comparator.comparing(SolutionEntity::getSubmittedAt))
+                    .orElse(null);
+
+            case VOTING -> result = solutions.stream()
+                    .max(Comparator.comparing(s ->
+                            voteRepository.countBySolutionId(s.getId())
+                    ))
+                    .orElse(null);
+
+            default -> result = null;
+        }
+
+        if (result == null) {
+            throw new NotFoundException("Not found");
+        }
+
+        return solutionMapper.toDto(result);
+    }
+
+    @Override
+    public Solution update(UUID solutionId, SolutionUpdateRequest request) {
+
+        User user = meService.getMe();
+        ensureStudent(user);
+
+        SolutionEntity solution = solutionRepository.findById(solutionId)
+                .orElseThrow(() -> new NotFoundException("Not found"));
+
+        if (!solution.getStudentId().equals(user.getId())) {
+            throw new ForbiddenException("Forbidden");
+        }
+
+        apply(solution, request);
+        solution.setUpdatedAt(LocalDateTime.now());
+
+        return solutionMapper.toDto(solutionRepository.save(solution));
     }
 
     @Override
     public Solution submit(UUID solutionId) {
-        User currentUser = meService.getMe();
-        ensureStudent(currentUser);
+
+        User user = meService.getMe();
+        ensureStudent(user);
 
         SolutionEntity solution = solutionRepository.findById(solutionId)
-                .orElseThrow(() -> new NotFoundException("Решение не найдено: " + solutionId));
+                .orElseThrow(() -> new NotFoundException("Not found"));
 
-        if (!solution.getStudentId().equals(currentUser.getId())) {
-            throw new ForbiddenException("Вы можете отправить только своё решение");
+        if (!solution.getStudentId().equals(user.getId())) {
+            throw new ForbiddenException("Forbidden");
         }
 
-        if (solution.getStatus() != SolutionStatus.SUBMITTED) {
-            LocalDateTime now = LocalDateTime.now();
-            solution.setStatus(SolutionStatus.SUBMITTED);
-            solution.setSubmittedAt(now);
-            solution.setUpdatedAt(now);
-            solution = solutionRepository.save(solution);
-        }
+        LocalDateTime now = LocalDateTime.now();
+        solution.setStatus(SolutionStatus.SUBMITTED);
+        solution.setSubmittedAt(now);
+        solution.setUpdatedAt(now);
 
-        return mapToDto(solution);
+        return solutionMapper.toDto(solutionRepository.save(solution));
     }
 
-    private void ensureStudent(User currentUser) {
-        if (currentUser.getRole() != Role.STUDENT) {
-            throw new ForbiddenException("Только студенты могут отправлять решения");
-        }
-    }
+    @Override
+    public SolutionDetailsDto getSolution(UserPrincipal user, UUID solutionId) {
 
-    private Solution mapToDto(SolutionEntity entity) {
-        return Solution.builder()
-                .id(entity.getId())
-                .postId(entity.getPost().getId())
-                .studentId(entity.getStudentId())
-                .status(entity.getStatus())
-                .text(entity.getText())
-                .videoUrl(entity.getVideoUrl())
-                .attachmentUrl(entity.getAttachmentUrl())
-                .createdAt(entity.getCreatedAt())
-                .updatedAt(entity.getUpdatedAt())
-                .submittedAt(entity.getSubmittedAt())
-                .build();
+        SolutionEntity solution = solutionRepository.findById(solutionId)
+                .orElseThrow(() -> new NotFoundException("Not found"));
+
+        if (user.getRole() == Role.STUDENT &&
+                !solution.getStudentId().equals(user.getId())) {
+            throw new ForbiddenException("Forbidden");
+        }
+
+        return solutionMapper.toDetailsDto(solution);
     }
 
     @Override
     public List<SolutionSummaryDto> getSolutions(
             UUID postId,
             SolutionStatus status,
+            SolutionOwnerType ownerType,
+            UUID teamId,
+            UUID studentId,
+            UUID authorStudentId,
+            Boolean selectedOnly,
             UserPrincipal user
     ) {
 
         if (user.getRole() != Role.TEACHER) {
-            throw new ForbiddenException("Only teacher can view solutions");
+            throw new ForbiddenException("Only teacher");
         }
 
-        PostEntity post = postRepository.findById(postId)
-                .orElseThrow(() -> new NotFoundException("Post not found"));
-
-        if (post.getType() != PostType.TASK) {
-            throw new NotFoundException("Solutions exist only for TASK posts");
-        }
-
-        List<SolutionSummaryDto> solutions;
-
-        if (status == null) {
-            solutions = solutionRepository.findByPostId(postId);
-        } else {
-            solutions = solutionRepository.findByPostIdAndStatus(postId, status);
-        }
-
-        return solutions;
+        return solutionRepository.findByPostId(postId)
+                .stream()
+                .filter(s -> status == null || s.getStatus() == status)
+                .filter(s -> ownerType == null || s.getOwnerType() == ownerType)
+                .filter(s -> teamId == null || teamId.equals(s.getTeamId()))
+                .filter(s -> studentId == null || studentId.equals(s.getStudentId()))
+                .filter(s -> authorStudentId == null || authorStudentId.equals(s.getStudentId()))
+                .filter(s -> selectedOnly == null || !selectedOnly || s.getStatus() == SolutionStatus.SUBMITTED)
+                .map(solutionMapper::toSummaryDto)
+                .toList();
     }
 
     @Override
-    public SolutionDto getMySolution(UUID postId, UUID studentId) {
+    public Solution vote(UUID solutionId) {
 
-        SolutionEntity solution = solutionRepository
-                .findByPostIdAndStudentId(postId, studentId)
-                .orElseThrow(() -> new NotFoundException("Solution not found"));
+        User user = meService.getMe();
+
+        SolutionEntity solution = solutionRepository.findById(solutionId)
+                .orElseThrow(() -> new NotFoundException("Not found"));
+
+        UUID postId = solution.getPost().getId();
+
+        voteRepository.deleteByPostIdAndStudentId(postId, user.getId());
+
+        SolutionVote vote = SolutionVote.builder()
+                .solutionId(solutionId)
+                .studentId(user.getId())
+                .postId(postId)
+                .build();
+
+        voteRepository.save(vote);
 
         return solutionMapper.toDto(solution);
     }
 
     @Override
-    public SolutionDetailsDto getSolution(String token, UUID solutionId) {
+    public Solution unvote(UUID solutionId) {
 
-        if (token == null) {
-            throw new UnauthorizedException("Invalid token");
-        }
-
-        if (token.startsWith("Bearer ")) {
-            token = token.substring(7);
-        }
-
-        if (!jwtService.isTokenValid(token)) {
-            throw new UnauthorizedException("Invalid token");
-        }
-
-        UserPrincipal user = jwtService.extractUserPrincipal(token);
+        User user = meService.getMe();
 
         SolutionEntity solution = solutionRepository.findById(solutionId)
-                .orElseThrow(() -> new NotFoundException("Solution not found"));
+                .orElseThrow(() -> new NotFoundException("Not found"));
 
-        if (user.getRole() == Role.STUDENT &&
-                !solution.getStudentId().equals(user.getId())) {
-            throw new ForbiddenException("Access denied");
+        voteRepository.deleteByPostIdAndStudentId(
+                solution.getPost().getId(),
+                user.getId()
+        );
+
+        return solutionMapper.toDto(solution);
+    }
+
+    private void apply(SolutionEntity s, SolutionCreateRequest r) {
+        s.setText(r.getText());
+        s.setVideoUrl(r.getVideoUrl());
+        s.setAttachmentUrl(r.getAttachmentUrl());
+    }
+
+    private void apply(SolutionEntity s, SolutionUpdateRequest r) {
+        s.setText(r.getText());
+        s.setVideoUrl(r.getVideoUrl());
+        s.setAttachmentUrl(r.getAttachmentUrl());
+    }
+
+    private void ensureStudent(User user) {
+        if (user.getRole() != Role.STUDENT) {
+            throw new ForbiddenException("Only student");
         }
-
-        GradeDto gradeDto = gradeRepository.findBySolution_Id(solutionId)
-                .map(grade -> GradeDto.builder()
-                        .solutionId(solutionId)
-                        .score(grade.getScore())
-                        .teacherComment(grade.getTeacherComment())
-                        .gradedAt(grade.getGradedAt())
-                        .teacherId(grade.getTeacherId())
-                        .build()
-                )
-                .orElse(null);
-
-        return SolutionDetailsDto.builder()
-                .id(solution.getId())
-                .postId(solution.getPost().getId())
-                .studentId(solution.getStudentId())
-                .status(solution.getStatus())
-                .text(solution.getText())
-                .videoUrl(solution.getVideoUrl())
-                .attachmentUrl(solution.getAttachmentUrl())
-                .createdAt(solution.getCreatedAt())
-                .updatedAt(solution.getUpdatedAt())
-                .submittedAt(solution.getSubmittedAt())
-                .grade(gradeDto)
-                .build();
     }
 }
