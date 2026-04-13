@@ -36,7 +36,7 @@ public class SolutionDetailsDto {
 
     private Integer votesCount;
 
-    private SolutionGradeDto solutionGrade;
+    private Integer teamGrade;
 
     private List<MemberGradeDto> memberGrades;
 }

@@ -15,5 +15,6 @@ import java.util.UUID;
 public class SolutionGradeDto {
 
     private UUID solutionId;
+    private Integer teamGrade;
     private List<StudentGradeDto> grades;
 }

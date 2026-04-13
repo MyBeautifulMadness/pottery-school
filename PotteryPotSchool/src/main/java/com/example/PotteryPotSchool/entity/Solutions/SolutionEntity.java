@@ -49,4 +49,6 @@ public class SolutionEntity {
     private LocalDateTime updatedAt;
 
     private LocalDateTime submittedAt;
+
+    private Integer teamGrade;
 }

@@ -58,6 +58,9 @@ public class GradeServiceImpl implements GradeService {
 
         LocalDateTime now = LocalDateTime.now();
 
+        solution.setTeamGrade(request.getScore());
+        solutionRepository.save(solution);
+
         List<GradeEntity> gradesToSave = memberIds.stream()
                 .map(studentId -> {
                     GradeEntity grade = gradeRepository.findBySolution_IdAndStudentId(solutionId, studentId)
@@ -79,6 +82,7 @@ public class GradeServiceImpl implements GradeService {
 
         return SolutionGradeDto.builder()
                 .solutionId(solutionId)
+                .teamGrade(solution.getTeamGrade())
                 .grades(savedGrades.stream()
                         .map(this::mapToStudentGradeDto)
                         .toList())
@@ -93,20 +97,21 @@ public class GradeServiceImpl implements GradeService {
         UserPrincipal user = jwtService.extractUserPrincipal(token);
 
         if (user.getRole() != Role.STUDENT && user.getRole() != Role.TEACHER) {
-            throw new ForbiddenException("Доступ запрещен");
+            throw new ForbiddenException("Access denied");
         }
 
-        solutionRepository.findById(solutionId)
-                .orElseThrow(() -> new NotFoundException("Решение не найдено"));
+        SolutionEntity solution = solutionRepository.findById(solutionId)
+                .orElseThrow(() -> new NotFoundException("Solution not found"));
 
         List<GradeEntity> grades = gradeRepository.findAllBySolution_Id(solutionId);
 
         if (grades.isEmpty()) {
-            throw new NotFoundException("Оценки не найдены");
+            throw new NotFoundException("Grades not found");
         }
 
         return SolutionGradeDto.builder()
                 .solutionId(solutionId)
+                .teamGrade(solution.getTeamGrade())
                 .grades(grades.stream()
                         .map(this::mapToStudentGradeDto)
                         .toList())
