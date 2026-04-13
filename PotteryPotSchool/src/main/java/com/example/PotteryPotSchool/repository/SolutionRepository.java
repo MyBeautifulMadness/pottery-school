@@ -22,6 +22,7 @@ public interface SolutionRepository extends JpaRepository<SolutionEntity, UUID> 
 
     List<SolutionEntity> findByPostIdAndTeamId(UUID postId, UUID teamId);
 
+    List<SolutionEntity> findAllByPost_Id(UUID postId);
 
     Optional<SolutionEntity> findByPostIdAndStudentId(UUID postId, UUID studentId);
 

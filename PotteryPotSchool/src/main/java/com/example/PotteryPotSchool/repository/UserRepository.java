@@ -42,6 +42,6 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
     """)
     Page<StudentSummaryDto> searchStudents(String query, Pageable pageable);
     Optional<UserEntity>findByIdAndRole(UUID id, Role role);
-
+    boolean existsByEmail(String email);
     List<UserEntity> findAllByRole(Role role);
 }

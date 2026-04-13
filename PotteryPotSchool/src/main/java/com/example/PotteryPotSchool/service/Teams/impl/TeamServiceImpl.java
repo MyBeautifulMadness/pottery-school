@@ -4,6 +4,7 @@ import com.example.PotteryPotSchool.config.BadRequestException;
 import com.example.PotteryPotSchool.dto.Students.StudentSummaryDto;
 import com.example.PotteryPotSchool.dto.Teams.*;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
+import com.example.PotteryPotSchool.entity.Profiles.ProfileEntity;
 import com.example.PotteryPotSchool.entity.Teams.TeamEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
@@ -13,6 +14,7 @@ import com.example.PotteryPotSchool.enums.Users.Role;
 import com.example.PotteryPotSchool.exception.ForbiddenException;
 import com.example.PotteryPotSchool.exception.NotFoundException;
 import com.example.PotteryPotSchool.repository.PostRepository;
+import com.example.PotteryPotSchool.repository.ProfileRepository;
 import com.example.PotteryPotSchool.repository.TeamRepository;
 import com.example.PotteryPotSchool.repository.UserRepository;
 import com.example.PotteryPotSchool.service.Me.MeService;
@@ -36,6 +38,7 @@ public class TeamServiceImpl implements TeamService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final MeService meService;
+    private final ProfileRepository profileRepository;
 
     @Override
     public List<TeamSummary> getTeamsByPostId(UUID postId) {
@@ -522,6 +525,25 @@ public class TeamServiceImpl implements TeamService {
         return mapToTeam(saved);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<Team> getDetailedTeamsByPostId(UUID postId) {
+        User currentUser = meService.getMe();
+
+        PostEntity post = getTeamTaskPost(postId);
+
+        return teamRepository.findAllByPost_IdOrderByCreatedAtAsc(post.getId())
+                .stream()
+                .map(this::mapToTeam)
+                .toList();
+    }
+
+    private String resolveStudentFullName(UUID userId) {
+        return profileRepository.findByUserId(userId)
+                .map(ProfileEntity::getFullName)
+                .orElse("Без имени");
+    }
+
     private void ensureStudentCanBeAddedToTeam(UUID postId, UUID teamId, UUID studentId) {
         List<TeamEntity> teams = teamRepository.findAllByPost_IdOrderByCreatedAtAsc(postId);
 
@@ -599,11 +621,8 @@ public class TeamServiceImpl implements TeamService {
         List<StudentSummaryDto> members = new ArrayList<>();
         if (team.getMembers() != null) {
             for (UserEntity member : team.getMembers()) {
-                StudentSummaryDto student = new StudentSummaryDto(
-                        member.getId(),
-                        null
-                );
-                members.add(student);
+                String fullName = resolveStudentFullName(member.getId());
+                members.add(new StudentSummaryDto(member.getId(), fullName));
             }
         }
 

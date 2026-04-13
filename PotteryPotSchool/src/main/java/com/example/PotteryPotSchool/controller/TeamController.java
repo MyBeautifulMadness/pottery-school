@@ -92,4 +92,9 @@ public class TeamController {
                           @PathVariable UUID teamId) {
         return teamService.leaveTeam(postId, teamId);
     }
+
+    @GetMapping("/details")
+    public List<Team> getDetailedTeamsByPostId(@PathVariable UUID postId) {
+        return teamService.getDetailedTeamsByPostId(postId);
+    }
 }

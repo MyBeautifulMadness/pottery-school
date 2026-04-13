@@ -8,17 +8,19 @@ import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Posts.MaterialEntity;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.entity.Posts.TaskEntity;
+import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
+import com.example.PotteryPotSchool.entity.Solutions.SolutionVote;
+import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
+import com.example.PotteryPotSchool.enums.Posts.PrioritySolution;
+import com.example.PotteryPotSchool.enums.Posts.TeamDistributionType;
+import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
 import com.example.PotteryPotSchool.enums.Users.Role;
-import com.example.PotteryPotSchool.repository.CommentRepository;
-import com.example.PotteryPotSchool.repository.GradeRepository;
-import com.example.PotteryPotSchool.repository.PostRepository;
-import com.example.PotteryPotSchool.repository.SolutionRepository;
+import com.example.PotteryPotSchool.repository.*;
 import com.example.PotteryPotSchool.service.Me.MeService;
 import com.example.PotteryPotSchool.service.Post.PostService;
 import com.example.PotteryPotSchool.entity.Teams.TeamEntity;
 import com.example.PotteryPotSchool.enums.Posts.TaskMode;
-import com.example.PotteryPotSchool.repository.TeamRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -40,6 +42,7 @@ public class PostServiceImpl implements PostService {
     private final SolutionRepository solutionRepository;
     private final GradeRepository gradeRepository;
     private final TeamRepository teamRepository;
+    private final SolutionVoteRepository solutionVoteRepository;
 
     @Override
     @Transactional
@@ -134,83 +137,311 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
+    @Transactional
     public PostDetails update(UUID postId, PostUpdateRequest request) {
         User currentUser = meService.getMe();
-
         if (currentUser.getRole() != Role.TEACHER) {
-            throw new ForbiddenException("Только учителя могут изменять пост");
+            throw new ForbiddenException("Только преподаватель может редактировать посты");
         }
 
         PostEntity post = postRepository.findById(postId)
-                .orElseThrow(() -> new NotFoundException("Пост не найден: " + postId));
+                .orElseThrow(() -> new NotFoundException("Пост не найден"));
 
-        post.setTitle(request.getTitle());
-        post.setDescription(request.getDescription());
-
-        if (post.getType() == PostType.MATERIAL) {
-            if (request.getTask() != null) {
-                throw new BadRequestException("Вы не можете изменить task для MATERIAL поста");
-            }
-
-            if (request.getMaterial() != null) {
-                post.getMaterial().setTitle(request.getMaterial().getTitle());
-                post.getMaterial().setUrl(request.getMaterial().getUrl());
-                post.getMaterial().setText(request.getMaterial().getText());
-            }
+        if (request == null) {
+            throw new BadRequestException("Тело запроса обязательно");
         }
 
-        if (post.getType() == PostType.TASK) {
-            if (request.getMaterial() != null) {
-                throw new BadRequestException("Вы не можете изменить material для TASK поста");
-            }
+        applyPostBaseUpdate(post, request);
 
-            if (request.getTask() != null) {
-                validateTaskUpdateRequest(request.getTask());
-
-                post.getTask().setDescription(request.getTask().getDescription());
-                post.getTask().setDeadline(request.getTask().getDeadline());
-                post.getTask().setMode(request.getTask().getMode());
-                post.getTask().setTeamDistributionType(request.getTask().getTeamDistributionType());
-                post.getTask().setPrioritySolution(request.getTask().getPrioritySolution());
-
-                TeamRules rules = request.getTask().getTeamRules();
-                post.getTask().setFormationDeadline(rules != null ? rules.getFormationDeadline() : null);
-                post.getTask().setMinTeamsCount(rules != null ? rules.getMinTeamsCount() : null);
-                post.getTask().setMaxTeamsCount(rules != null ? rules.getMaxTeamsCount() : null);
-                post.getTask().setMinMembersPerTeam(rules != null ? rules.getMinMembersPerTeam() : null);
-                post.getTask().setMaxMembersPerTeam(rules != null ? rules.getMaxMembersPerTeam() : null);
-            }
+        if (post.getType() == PostType.MATERIAL) {
+            applyMaterialUpdate(post, request);
+        } else if (post.getType() == PostType.TASK) {
+            applyTaskUpdate(post, request);
         }
 
         post.setUpdatedAt(LocalDateTime.now());
 
-        PostEntity savedPost = postRepository.save(post);
-        return mapToPostDetails(savedPost);
+        PostEntity saved = postRepository.save(post);
+        return mapToPostDetails(saved);
     }
 
-    private void validateTaskUpdateRequest(TaskUpdateRequest task) {
-        if (task.getMode() == null) {
+    private void applyPostBaseUpdate(PostEntity post, PostUpdateRequest request) {
+        if (request.getTitle() != null) {
+            String title = request.getTitle().trim();
+            if (title.isEmpty()) {
+                throw new BadRequestException("Название поста не может быть пустым");
+            }
+            post.setTitle(title);
+        }
+
+        if (request.getDescription() != null) {
+            post.setDescription(request.getDescription());
+        }
+    }
+
+    private void applyMaterialUpdate(PostEntity post, PostUpdateRequest request) {
+        if (request.getTask() != null) {
+            throw new BadRequestException("Для MATERIAL-поста нельзя обновлять task");
+        }
+
+        if (request.getMaterial() == null) {
+            return;
+        }
+
+        if (post.getMaterial() == null) {
+            throw new BadRequestException("У поста отсутствует material");
+        }
+
+        MaterialUpdateRequest materialRequest = request.getMaterial();
+
+        if (materialRequest.getTitle() != null) {
+            String title = materialRequest.getTitle().trim();
+            if (title.isEmpty()) {
+                throw new BadRequestException("Название материала не может быть пустым");
+            }
+            post.getMaterial().setTitle(title);
+        }
+
+        if (materialRequest.getUrl() != null) {
+            post.getMaterial().setUrl(materialRequest.getUrl());
+        }
+
+        if (materialRequest.getText() != null) {
+            post.getMaterial().setText(materialRequest.getText());
+        }
+    }
+
+    private void applyTaskUpdate(PostEntity post, PostUpdateRequest request) {
+        if (request.getMaterial() != null) {
+            throw new BadRequestException("Для TASK-поста нельзя обновлять material");
+        }
+
+        if (request.getTask() == null) {
+            return;
+        }
+
+        if (post.getTask() == null) {
+            throw new BadRequestException("У поста отсутствует task");
+        }
+
+        TaskUpdateRequest taskRequest = request.getTask();
+        TaskEntity task = post.getTask();
+
+        TaskMode newMode = taskRequest.getMode() != null ? taskRequest.getMode() : task.getMode();
+        TeamDistributionType newDistributionType =
+                taskRequest.getTeamDistributionType() != null
+                        ? taskRequest.getTeamDistributionType()
+                        : task.getTeamDistributionType();
+        PrioritySolution newPrioritySolution =
+                taskRequest.getPrioritySolution() != null
+                        ? taskRequest.getPrioritySolution()
+                        : task.getPrioritySolution();
+
+        TeamRules incomingRules = taskRequest.getTeamRules();
+
+        LocalDateTime newFormationDeadline = incomingRules != null
+                ? incomingRules.getFormationDeadline()
+                : task.getFormationDeadline();
+
+        Integer newMinTeamsCount = incomingRules != null
+                ? incomingRules.getMinTeamsCount()
+                : task.getMinTeamsCount();
+
+        Integer newMaxTeamsCount = incomingRules != null
+                ? incomingRules.getMaxTeamsCount()
+                : task.getMaxTeamsCount();
+
+        Integer newMinMembersPerTeam = incomingRules != null
+                ? incomingRules.getMinMembersPerTeam()
+                : task.getMinMembersPerTeam();
+
+        Integer newMaxMembersPerTeam = incomingRules != null
+                ? incomingRules.getMaxMembersPerTeam()
+                : task.getMaxMembersPerTeam();
+
+        validateTaskPatchState(
+                newMode,
+                newDistributionType,
+                newPrioritySolution,
+                newMinTeamsCount,
+                newMaxTeamsCount,
+                newMinMembersPerTeam,
+                newMaxMembersPerTeam
+        );
+
+        if (taskRequest.getDescription() != null) {
+            task.setDescription(taskRequest.getDescription());
+        }
+
+        if (taskRequest.getDeadline() != null) {
+            task.setDeadline(taskRequest.getDeadline());
+        }
+
+        if (taskRequest.getMode() != null) {
+            task.setMode(taskRequest.getMode());
+        }
+
+        if (taskRequest.getTeamDistributionType() != null) {
+            task.setTeamDistributionType(taskRequest.getTeamDistributionType());
+        }
+
+        if (taskRequest.getPrioritySolution() != null) {
+            task.setPrioritySolution(taskRequest.getPrioritySolution());
+        }
+
+        if (incomingRules != null) {
+            task.setFormationDeadline(incomingRules.getFormationDeadline());
+            task.setMinTeamsCount(incomingRules.getMinTeamsCount());
+            task.setMaxTeamsCount(incomingRules.getMaxTeamsCount());
+            task.setMinMembersPerTeam(incomingRules.getMinMembersPerTeam());
+            task.setMaxMembersPerTeam(incomingRules.getMaxMembersPerTeam());
+        }
+    }
+
+    private void validateTaskPatchState(
+            TaskMode mode,
+            TeamDistributionType teamDistributionType,
+            PrioritySolution prioritySolution,
+            Integer minTeamsCount,
+            Integer maxTeamsCount,
+            Integer minMembersPerTeam,
+            Integer maxMembersPerTeam
+    ) {
+        if (mode == null) {
             throw new BadRequestException("Для задания mode обязателен");
         }
 
-        if (task.getMode() == com.example.PotteryPotSchool.enums.Posts.TaskMode.SOLO) {
-            if (task.getTeamDistributionType() != null ||
-                    task.getTeamRules() != null ||
-                    task.getPrioritySolution() != null) {
-                throw new BadRequestException("Для SOLO задания teamDistributionType, teamRules и prioritySolution должны быть null");
+        if (mode == TaskMode.SOLO) {
+            if (teamDistributionType != null || prioritySolution != null
+                    || minTeamsCount != null || maxTeamsCount != null
+                    || minMembersPerTeam != null || maxMembersPerTeam != null) {
+                throw new BadRequestException(
+                        "Для SOLO задания teamDistributionType, prioritySolution и teamRules должны быть null"
+                );
             }
             return;
         }
 
-        if (task.getTeamDistributionType() == null) {
+        if (teamDistributionType == null) {
             throw new BadRequestException("Для TEAM задания teamDistributionType обязателен");
         }
-        if (task.getPrioritySolution() == null) {
+
+        if (prioritySolution == null) {
             throw new BadRequestException("Для TEAM задания prioritySolution обязателен");
         }
 
-        validateTeamRules(task.getTeamRules());
+        if (minTeamsCount != null && maxTeamsCount != null && minTeamsCount > maxTeamsCount) {
+            throw new BadRequestException("minTeamsCount не может быть больше maxTeamsCount");
+        }
+
+        if (minMembersPerTeam != null && maxMembersPerTeam != null
+                && minMembersPerTeam > maxMembersPerTeam) {
+            throw new BadRequestException("minMembersPerTeam не может быть больше maxMembersPerTeam");
+        }
     }
+
+    private UUID resolveSelectedSolutionId(PostEntity post) {
+        if (post.getType() != PostType.TASK || post.getTask() == null) {
+            return null;
+        }
+
+        TaskEntity task = post.getTask();
+
+        if (task.getSelectedSolutionId() != null) {
+            return task.getSelectedSolutionId();
+        }
+
+        if (task.getMode() != TaskMode.TEAM) {
+            return null;
+        }
+
+        if (task.getPrioritySolution() == null) {
+            return null;
+        }
+
+        List<SolutionEntity> solutions = solutionRepository.findAllByPost_Id(post.getId());
+
+        if (solutions == null || solutions.isEmpty()) {
+            return null;
+        }
+
+        List<SolutionEntity> submittedSolutions = solutions.stream()
+                .filter(solution -> solution.getStatus() == SolutionStatus.SUBMITTED)
+                .toList();
+
+        if (submittedSolutions.isEmpty()) {
+            return null;
+        }
+
+        return switch (task.getPrioritySolution()) {
+            case FIRST -> submittedSolutions.stream()
+                    .sorted(java.util.Comparator.comparing(SolutionEntity::getCreatedAt))
+                    .map(SolutionEntity::getId)
+                    .findFirst()
+                    .orElse(null);
+
+            case LAST -> submittedSolutions.stream()
+                    .sorted(java.util.Comparator.comparing(SolutionEntity::getCreatedAt).reversed())
+                    .map(SolutionEntity::getId)
+                    .findFirst()
+                    .orElse(null);
+
+            case CAPITAIN -> resolveCaptainSolutionId(post, submittedSolutions);
+
+            case VOTING -> resolveVotingSolutionId(post, submittedSolutions);
+        };
+    }
+
+    private UUID resolveVotingSolutionId(PostEntity post, List<SolutionEntity> submittedSolutions) {
+        List<SolutionVote> votes = solutionVoteRepository.findAllByPostId(post.getId());
+
+        if (votes == null || votes.isEmpty()) {
+            return null;
+        }
+
+        java.util.Map<UUID, Long> votesBySolutionId = votes.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        SolutionVote::getSolutionId,
+                        java.util.stream.Collectors.counting()
+                ));
+
+        return submittedSolutions.stream()
+                .sorted(
+                        java.util.Comparator
+                                .comparing(
+                                        (SolutionEntity solution) -> votesBySolutionId.getOrDefault(solution.getId(), 0L)
+                                )
+                                .reversed()
+                                .thenComparing(SolutionEntity::getCreatedAt)
+                )
+                .map(SolutionEntity::getId)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private UUID resolveCaptainSolutionId(PostEntity post, List<SolutionEntity> submittedSolutions) {
+        List<TeamEntity> teams = teamRepository.findAllByPost_IdOrderByCreatedAtAsc(post.getId());
+
+        java.util.Set<UUID> captainIds = teams.stream()
+                .map(TeamEntity::getCaptain)
+                .filter(java.util.Objects::nonNull)
+                .map(UserEntity::getId)
+                .collect(java.util.stream.Collectors.toSet());
+
+        if (captainIds.isEmpty()) {
+            return null;
+        }
+
+        return submittedSolutions.stream()
+                .filter(solution -> solution.getStudentId() != null
+                        && captainIds.contains(solution.getStudentId()))
+                .sorted(java.util.Comparator.comparing(SolutionEntity::getCreatedAt))
+                .map(SolutionEntity::getId)
+                .findFirst()
+                .orElse(null);
+    }
+
+
 
     private void validateCreateRequest(PostCreateRequest request) {
         if (request.getType() == PostType.MATERIAL) {
@@ -324,7 +555,7 @@ public class PostServiceImpl implements PostService {
             taskDetails.setMode(post.getTask().getMode());
             taskDetails.setTeamDistributionType(post.getTask().getTeamDistributionType());
             taskDetails.setPrioritySolution(post.getTask().getPrioritySolution());
-            taskDetails.setSelectedSolutionId(post.getTask().getSelectedSolutionId());
+            taskDetails.setSelectedSolutionId(resolveSelectedSolutionId(post));
 
             TeamRules rules = new TeamRules();
             rules.setFormationDeadline(post.getTask().getFormationDeadline());
