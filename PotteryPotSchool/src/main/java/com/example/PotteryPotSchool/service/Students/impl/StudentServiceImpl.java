@@ -76,12 +76,6 @@ public class StudentServiceImpl implements StudentService {
             throw new UnauthorizedException("Invalid token");
         }
 
-        UserPrincipal principal = jwtService.extractUserPrincipal(token);
-
-        if (principal.getRole() != Role.TEACHER) {
-            throw new ForbiddenException("Access denied");
-        }
-
 
         UserEntity student = userRepository
                 .findByIdAndRole(studentId, Role.STUDENT)
@@ -101,81 +95,5 @@ public class StudentServiceImpl implements StudentService {
                 student.getId(),
                 profile
         );
-    }
-
-    @Override
-    public PerformanceSummaryDto getStudentPerformance(String token, UUID studentId) {
-
-        if (token == null) {
-            throw new UnauthorizedException("Invalid token");
-        }
-
-        if (token.startsWith("Bearer ")) {
-            token = token.substring(7);
-        }
-
-        if (!jwtService.isTokenValid(token)) {
-            throw new UnauthorizedException("Invalid token");
-        }
-
-        if (!userRepository.existsById(studentId)) {
-            throw new NotFoundException("Student not found");
-        }
-
-        List<PostEntity> posts = postRepository.findAll();
-
-        List<PerformanceItemDto> items = new ArrayList<>();
-        List<Integer> scores = new ArrayList<>();
-
-        for (PostEntity post : posts) {
-
-            Optional<SolutionEntity> solutionOpt =
-                    solutionRepository.findByPostIdAndStudentId(post.getId(), studentId);
-
-            if (solutionOpt.isEmpty()) {
-                continue; // просто пропускаем пост
-            }
-
-            SolutionEntity solution = solutionOpt.get();
-
-            GradeDto gradeDto = gradeRepository.findBySolution_Id(solution.getId())
-                    .map(grade -> {
-
-                        scores.add(grade.getScore());
-
-                        return GradeDto.builder()
-                                .solutionId(solution.getId())
-                                .score(grade.getScore())
-                                .teacherComment(grade.getTeacherComment())
-                                .gradedAt(grade.getGradedAt())
-                                .teacherId(grade.getTeacherId())
-                                .build();
-                    })
-                    .orElse(null);
-
-            items.add(
-                    PerformanceItemDto.builder()
-                            .postId(post.getId())
-                            .postTitle(post.getTitle())
-                            .solutionId(solution.getId())
-                            .grade(gradeDto)
-                            .build()
-            );
-        }
-
-        Double avg = null;
-
-        if (!scores.isEmpty()) {
-            avg = scores.stream()
-                    .mapToInt(i -> i)
-                    .average()
-                    .orElse(0);
-        }
-
-        return PerformanceSummaryDto.builder()
-                .studentId(studentId)
-                .averageGrade(avg)
-                .items(items)
-                .build();
     }
 }

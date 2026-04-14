@@ -55,14 +55,6 @@ public class StudentController {
         return studentService.getStudentById(token, uuid);
     }
 
-    @GetMapping("/{studentId}/performance")
-    public PerformanceSummaryDto getPerformance(
-            @RequestHeader("Authorization") String token,
-            @PathVariable UUID studentId
-    ) {
-        return studentService.getStudentPerformance(token, studentId);
-    }
-
 
     private String extractToken(String authHeader) {
 

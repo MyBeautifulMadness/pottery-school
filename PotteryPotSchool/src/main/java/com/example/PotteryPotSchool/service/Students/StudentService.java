@@ -15,5 +15,4 @@ public interface StudentService {
             Pageable pageable
     );
     StudentDetailsDto getStudentById(String token, UUID studentId);
-    PerformanceSummaryDto getStudentPerformance(String token, UUID studentId);
 }

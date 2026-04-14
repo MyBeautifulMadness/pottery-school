@@ -23,10 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -116,9 +113,14 @@ public class SolutionServiceImpl implements SolutionService {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new NotFoundException("Post not found"));
 
-        Team team = teamService.getMyTeam(postId);
+        PrioritySolution priority;
+        Team team;
+        if(post.getTask().getPrioritySolution()!= null){
+            team = teamService.getMyTeam(postId);
+           priority = post.getTask().getPrioritySolution();
+        }
 
-        PrioritySolution priority = post.getTask().getPrioritySolution();
+        else {priority=null; team = null;}
 
         List<SolutionEntity> solutions = solutionRepository.findByPostIdAndStatus(
                 postId, SolutionStatus.SUBMITTED
@@ -155,6 +157,9 @@ public class SolutionServiceImpl implements SolutionService {
                     .max(Comparator.comparing(s ->
                             voteRepository.countBySolutionId(s.getId())
                     ))
+                    .orElse(null);
+            case null -> result = solutions.stream()
+                    .min(Comparator.comparing(SolutionEntity::getSubmittedAt))
                     .orElse(null);
 
             default -> result = null;
@@ -237,22 +242,18 @@ public class SolutionServiceImpl implements SolutionService {
             throw new ForbiddenException("Only teacher");
         }
 
-        UUID selectedId;
+        UUID selectedId = null;
 
         if (Boolean.TRUE.equals(selectedOnly)) {
-            selectedId = findSelectedSolutionEntity(postId).getId();
 
-            return solutionRepository.findByPostId(postId)
-                    .stream()
-                    .filter(s -> s.getId().equals(selectedId))
-                    .map(solutionMapper::toSummaryDto)
-                    .toList();
-        } else {
-            selectedId = null;
+            SolutionEntity selected = findSelectedSolutionEntity(postId);
+
+            if (selected == null) {
+                return Collections.emptyList(); // 👈 ключевая правка
+            }
+
+            selectedId = selected.getId();
         }
-
-        System.out.println("selectedOnly=" + selectedOnly);
-        System.out.println("selectedId=" + selectedId);
 
         UUID finalSelectedId = selectedId;
 
@@ -346,55 +347,65 @@ public class SolutionServiceImpl implements SolutionService {
         }
     }
 
+
     private SolutionEntity findSelectedSolutionEntity(UUID postId) {
 
         PostEntity post = postRepository.findById(postId)
-                .orElseThrow(() -> new NotFoundException("Post not found"));
+                .orElse(null);
 
-        PrioritySolution priority = post.getTask().getPrioritySolution();
+        if (post == null) {
+            return null;
+        }
 
-        List<SolutionEntity> solutions = solutionRepository.findByPostIdAndStatus(
-                postId, SolutionStatus.SUBMITTED
-        );
+        PrioritySolution priority = null;
+        Team team = null;
 
-        SolutionEntity result;
+        if (post.getTask().getPrioritySolution() != null) {
+            priority = post.getTask().getPrioritySolution();
+            team = teamService.getMyTeam(postId);
+        }
 
-        switch (priority) {
+        List<SolutionEntity> solutions = solutionRepository
+                .findByPostIdAndStatus(postId, SolutionStatus.SUBMITTED);
+
+        if (solutions == null || solutions.isEmpty()) {
+            return null;
+        }
+
+        return switch (priority) {
 
             case CAPITAIN -> {
+                if (team == null || team.getCaptainId() == null) {
+                    yield null;
+                }
 
-                result = solutions.stream()
-                        .filter(s -> s.getTeamId() != null)
-                        .filter(s -> {
-                            Team team = teamService.getTeamById(postId, s.getTeamId());
-                            return team.getCaptainId() != null &&
-                                    team.getCaptainId().equals(s.getStudentId());
-                        })
+                UUID captainId = team.getCaptainId();
+
+                yield solutions.stream()
+                        .filter(s -> captainId.equals(s.getStudentId()))
                         .findFirst()
                         .orElse(null);
             }
 
-            case FIRST -> result = solutions.stream()
+            case FIRST -> solutions.stream()
                     .min(Comparator.comparing(SolutionEntity::getSubmittedAt))
                     .orElse(null);
 
-            case LAST -> result = solutions.stream()
+            case LAST -> solutions.stream()
                     .max(Comparator.comparing(SolutionEntity::getSubmittedAt))
                     .orElse(null);
 
-            case VOTING -> result = solutions.stream()
+            case VOTING -> solutions.stream()
                     .max(Comparator.comparing(s ->
                             voteRepository.countBySolutionId(s.getId())
                     ))
                     .orElse(null);
 
-            default -> result = null;
-        }
+            case null -> solutions.stream()
+                    .min(Comparator.comparing(SolutionEntity::getSubmittedAt))
+                    .orElse(null);
 
-        if (result == null) {
-            throw new NotFoundException("Not found");
-        }
-
-        return result;
+            default -> null;
+        };
     }
 }

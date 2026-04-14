@@ -13,4 +13,5 @@ public class StudentPerformanceDto {
 
     private UUID studentId;
     private List<StudentPerformanceItemDto> grades;
+    private Double averageScore;
 }

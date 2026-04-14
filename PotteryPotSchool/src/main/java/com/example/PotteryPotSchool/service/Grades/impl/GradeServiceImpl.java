@@ -187,23 +187,23 @@ public class GradeServiceImpl implements GradeService {
 
         validateToken(token);
 
-        UserPrincipal user = jwtService.extractUserPrincipal(token);
-
-        if (user.getRole() != Role.TEACHER) {
-            throw new ForbiddenException("Только учитель может просматривать успеваемость учащихся");
-        }
-
         List<GradeEntity> grades = gradeRepository.findAllByStudentId(studentId);
 
         if (grades.isEmpty()) {
             throw new NotFoundException("Оценки для студента не найдены");
         }
 
+        double averageScore = grades.stream()
+                .mapToInt(GradeEntity::getScore)
+                .average()
+                .orElse(0.0);
+
         return StudentPerformanceDto.builder()
                 .studentId(studentId)
                 .grades(grades.stream()
                         .map(this::mapToStudentPerformanceItemDto)
                         .toList())
+                .averageScore(averageScore)
                 .build();
     }
 
