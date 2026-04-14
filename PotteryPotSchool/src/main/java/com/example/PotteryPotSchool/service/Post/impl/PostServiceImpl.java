@@ -96,6 +96,9 @@ public class PostServiceImpl implements PostService {
         gradeRepository.deleteAllBySolution_Post_Id(postId);
         solutionRepository.deleteAllByPost_Id(postId);
         commentRepository.deleteAllByPostId(postId);
+        if (post.getType() == PostType.TASK && post.getTask() != null) {
+            teamRepository.deleteAllByPost_Id(postId);
+        }
 
         postRepository.delete(post);
     }
