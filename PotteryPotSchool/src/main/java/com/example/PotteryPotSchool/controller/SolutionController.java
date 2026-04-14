@@ -82,4 +82,9 @@ public class SolutionController {
     ) {
         return service.getTeamSolutions(postId, user.getId());
     }
+
+    @DeleteMapping("/solutions/{solutionId}/unsubmit")
+    public Solution unsubmit(@PathVariable UUID solutionId) {
+        return service.unsubmit(solutionId);
+    }
 }

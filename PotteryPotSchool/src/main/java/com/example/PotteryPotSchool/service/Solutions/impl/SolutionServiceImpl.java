@@ -307,6 +307,27 @@ public class SolutionServiceImpl implements SolutionService {
         return solutionMapper.toDto(solution);
     }
 
+    @Override
+    public Solution unsubmit(UUID solutionId) {
+
+        User user = meService.getMe();
+        ensureStudent(user);
+
+        SolutionEntity solution = solutionRepository.findById(solutionId)
+                .orElseThrow(() -> new NotFoundException("Not found"));
+
+        if (!solution.getStudentId().equals(user.getId())) {
+            throw new ForbiddenException("Forbidden");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        solution.setStatus(SolutionStatus.DRAFT);
+        solution.setSubmittedAt(null);
+        solution.setUpdatedAt(now);
+
+        return solutionMapper.toDto(solutionRepository.save(solution));
+    }
+
     private void apply(SolutionEntity s, SolutionCreateRequest r) {
         s.setText(r.getText());
         s.setVideoUrl(r.getVideoUrl());

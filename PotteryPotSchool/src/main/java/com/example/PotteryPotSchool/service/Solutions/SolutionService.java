@@ -37,4 +37,7 @@ public interface SolutionService {
     Solution vote(UUID solutionId);
 
     Solution unvote(UUID solutionId);
+
+    Solution unsubmit(UUID solutionId);
+
 }
