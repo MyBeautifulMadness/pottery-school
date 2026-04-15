@@ -8,7 +8,6 @@ import com.example.PotteryPotSchool.dto.Users.User;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.entity.Posts.TaskEntity;
 import com.example.PotteryPotSchool.entity.Solutions.*;
-import com.example.PotteryPotSchool.entity.Teams.TeamEntity;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
 import com.example.PotteryPotSchool.enums.Posts.PrioritySolution;
 import com.example.PotteryPotSchool.enums.Posts.TaskMode;
@@ -26,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -117,6 +117,14 @@ public class SolutionServiceImpl implements SolutionService {
 
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new NotFoundException("Post not found"));
+
+        User user = meService.getMe();
+        ensureStudent(user);
+
+        if (user.getRole()!=Role.STUDENT) {
+            throw new ForbiddenException("Forbidden");
+        }
+
 
         PrioritySolution priority;
         Team team;
@@ -247,20 +255,23 @@ public class SolutionServiceImpl implements SolutionService {
             throw new ForbiddenException("Only teacher");
         }
 
-        UUID selectedId = null;
+        Set<UUID> selectedIds = null;
 
         if (Boolean.TRUE.equals(selectedOnly)) {
 
-            SolutionEntity selected = findSelectedSolutionEntity(postId);
+            selectedIds = teamService.getTeamsByPostId(postId)
+                    .stream()
+                    .map(team -> findSelectedSolutionEntity(postId, team.getId()))
+                    .filter(Objects::nonNull)
+                    .map(SolutionEntity::getId)
+                    .collect(Collectors.toSet());
 
-            if (selected == null) {
+            if (selectedIds.isEmpty()) {
                 return Collections.emptyList();
             }
-
-            selectedId = selected.getId();
         }
 
-        UUID finalSelectedId = selectedId;
+        Set<UUID> finalSelectedIds = selectedIds;
 
         return solutionRepository.findByPostId(postId)
                 .stream()
@@ -269,7 +280,7 @@ public class SolutionServiceImpl implements SolutionService {
                 .filter(s -> teamId == null || teamId.equals(s.getTeamId()))
                 .filter(s -> studentId == null || studentId.equals(s.getStudentId()))
                 .filter(s -> authorStudentId == null || authorStudentId.equals(s.getStudentId()))
-                .filter(s -> finalSelectedId == null || s.getId().equals(finalSelectedId))
+                .filter(s -> finalSelectedIds == null || finalSelectedIds.contains(s.getId()))
                 .map(solutionMapper::toSummaryDto)
                 .toList();
     }
@@ -355,7 +366,7 @@ public class SolutionServiceImpl implements SolutionService {
     }
 
 
-    private SolutionEntity findSelectedSolutionEntity(UUID postId) {
+    private SolutionEntity findSelectedSolutionEntity(UUID postId, UUID teamId) {
 
         PostEntity post = postRepository.findById(postId)
                 .orElse(null);
@@ -369,7 +380,7 @@ public class SolutionServiceImpl implements SolutionService {
 
         if (post.getTask().getPrioritySolution() != null) {
             priority = post.getTask().getPrioritySolution();
-            team = teamService.getMyTeam(postId);
+            team = teamService.getTeamById(postId, teamId);
         }
 
         List<SolutionEntity> solutions = solutionRepository
