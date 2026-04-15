@@ -1,6 +1,7 @@
 package com.example.PotteryPotSchool.service.Solutions.impl;
 
 import com.example.PotteryPotSchool.config.*;
+import com.example.PotteryPotSchool.dto.Profiles.Profile;
 import com.example.PotteryPotSchool.dto.Solutions.*;
 import com.example.PotteryPotSchool.dto.Teams.Team;
 import com.example.PotteryPotSchool.dto.Users.User;
@@ -21,6 +22,7 @@ import com.example.PotteryPotSchool.service.Solutions.*;
 import com.example.PotteryPotSchool.service.Teams.TeamService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -42,6 +44,8 @@ public class SolutionServiceImpl implements SolutionService {
 
         User user = meService.getMe();
         ensureStudent(user);
+
+        Profile profile = meService.getMyProfile();
 
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new NotFoundException("Post not found"));
@@ -69,6 +73,7 @@ public class SolutionServiceImpl implements SolutionService {
         SolutionEntity solution = SolutionEntity.builder()
                 .post(post)
                 .studentId(user.getId())
+                .studentName(profile.getFullName())
                 .teamId(request.getTeamId())
                 .ownerType(isTeam ? SolutionOwnerType.TEAM : SolutionOwnerType.STUDENT)
                 .status(SolutionStatus.DRAFT)
@@ -249,7 +254,7 @@ public class SolutionServiceImpl implements SolutionService {
             SolutionEntity selected = findSelectedSolutionEntity(postId);
 
             if (selected == null) {
-                return Collections.emptyList(); // 👈 ключевая правка
+                return Collections.emptyList();
             }
 
             selectedId = selected.getId();
@@ -270,6 +275,7 @@ public class SolutionServiceImpl implements SolutionService {
     }
 
     @Override
+    @Transactional
     public Solution vote(UUID solutionId) {
 
         User user = meService.getMe();
@@ -293,6 +299,7 @@ public class SolutionServiceImpl implements SolutionService {
     }
 
     @Override
+    @Transactional
     public Solution unvote(UUID solutionId) {
 
         User user = meService.getMe();

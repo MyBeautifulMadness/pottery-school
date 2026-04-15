@@ -29,6 +29,9 @@ public class SolutionEntity {
     @Column(nullable = false)
     private UUID studentId;
 
+    @Column
+    private String studentName;
+
     private UUID teamId;
 
     @Enumerated(EnumType.STRING)
