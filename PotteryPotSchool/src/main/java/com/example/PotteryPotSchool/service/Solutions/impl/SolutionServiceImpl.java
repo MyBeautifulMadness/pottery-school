@@ -266,6 +266,11 @@ public class SolutionServiceImpl implements SolutionService {
                     .map(SolutionEntity::getId)
                     .collect(Collectors.toSet());
 
+            SolutionEntity soloSelected = findSelectedSolutionEntity(postId, null);
+            if (soloSelected != null) {
+                selectedIds.add(soloSelected.getId());
+            }
+
             if (selectedIds.isEmpty()) {
                 return Collections.emptyList();
             }
@@ -375,18 +380,25 @@ public class SolutionServiceImpl implements SolutionService {
             return null;
         }
 
-        PrioritySolution priority = null;
+        PrioritySolution priority = post.getTask().getPrioritySolution();
         Team team = null;
 
-        if (post.getTask().getPrioritySolution() != null) {
-            priority = post.getTask().getPrioritySolution();
+        if (priority != null && teamId != null) {
             team = teamService.getTeamById(postId, teamId);
         }
 
         List<SolutionEntity> solutions = solutionRepository
-                .findByPostIdAndStatus(postId, SolutionStatus.SUBMITTED);
+                .findByPostIdAndStatus(postId, SolutionStatus.SUBMITTED)
+                .stream()
+                .filter(s -> {
+                    if (teamId == null) {
+                        return s.getTeamId() == null; // solo
+                    }
+                    return teamId.equals(s.getTeamId());
+                })
+                .toList();
 
-        if (solutions == null || solutions.isEmpty()) {
+        if (solutions.isEmpty()) {
             return null;
         }
 
