@@ -76,7 +76,7 @@ public class SolutionController {
     }
 
     @GetMapping("/posts/{postId}/solutions/team")
-    public List<SolutionSummaryDto> team(
+    public List<Solution> team(
             @PathVariable UUID postId,
             @AuthenticationPrincipal UserPrincipal user
     ) {

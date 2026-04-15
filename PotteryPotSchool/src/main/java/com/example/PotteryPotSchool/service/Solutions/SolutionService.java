@@ -30,7 +30,7 @@ public interface SolutionService {
 
     SolutionDetailsDto getSolution(UserPrincipal user, UUID solutionId);
 
-    List<SolutionSummaryDto> getTeamSolutions(UUID postId, UUID studentId);
+    List<Solution> getTeamSolutions(UUID postId, UUID studentId);
 
     Solution getSelected(UUID postId);
 

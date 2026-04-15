@@ -100,7 +100,7 @@ public class SolutionServiceImpl implements SolutionService {
         else return null;
     }
 
-    public List<SolutionSummaryDto> getTeamSolutions(UUID postId, UUID studentId) {
+    public List<Solution> getTeamSolutions(UUID postId, UUID studentId) {
 
         Team team = teamService.getMyTeam(postId);
 
@@ -108,7 +108,7 @@ public class SolutionServiceImpl implements SolutionService {
                 .stream()
                 .filter(s -> team.getMembers().stream()
                         .anyMatch(m -> m.getId().equals(s.getStudentId())))
-                .map(solutionMapper::toSummaryDto)
+                .map(solutionMapper::toDto)
                 .toList();
     }
 
