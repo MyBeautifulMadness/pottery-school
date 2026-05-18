@@ -1,5 +1,7 @@
 package com.example.PotteryPotSchool.dto.Solutions;
 
+import com.example.PotteryPotSchool.dto.Grades.CriterionGradeResult;
+import com.example.PotteryPotSchool.dto.Grades.SelfAssessmentItemDto;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionOwnerType;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
 import lombok.*;
@@ -39,4 +41,8 @@ public class SolutionDetailsDto {
     private Integer teamGrade;
 
     private List<MemberGradeDto> memberGrades;
+
+    private List<SelfAssessmentItemDto> selfAssessment;
+
+    private CriterionGradeResult criterionGrade;
 }

@@ -1,5 +1,6 @@
 package com.example.PotteryPotSchool.entity.Posts;
 
+import com.example.PotteryPotSchool.entity.Grades.CriterionEntity;
 import com.example.PotteryPotSchool.enums.Posts.PrioritySolution;
 import com.example.PotteryPotSchool.enums.Posts.TaskMode;
 import com.example.PotteryPotSchool.enums.Posts.TeamDistributionType;
@@ -9,7 +10,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -48,6 +52,32 @@ public class TaskEntity {
 
     @Column(columnDefinition = "uuid")
     private UUID selectedSolutionId;
+
+    @Builder.Default
+    private Boolean gradingEnabled = false;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal maxFinalScore;
+
+    @Builder.Default
+    private Boolean selfAssessmentRequired = false;
+
+    @Builder.Default
+    private Boolean latePenaltyEnabled = false;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal latePenaltyPerDay;
+
+    @Builder.Default
+    private Boolean progressPenaltyEnabled = false;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal progressPenaltyPerMiss;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("displayOrder ASC")
+    private List<CriterionEntity> criteria = new ArrayList<>();
 
     @OneToOne
     @JoinColumn(name = "post_id", nullable = false, unique = true)

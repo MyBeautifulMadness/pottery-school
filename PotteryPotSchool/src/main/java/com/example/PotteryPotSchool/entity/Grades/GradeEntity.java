@@ -4,7 +4,10 @@ import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -31,10 +34,38 @@ public class GradeEntity {
     @Column(name = "student_id", nullable = false)
     private UUID studentId;
 
-    @Column(nullable = false)
     private Integer score;
 
+    @Column(precision = 10, scale = 2)
+    private BigDecimal maxFinalScore;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal regularScore;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal bonusScore;
+
+    private Integer lateDays;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal latePenalty;
+
+    private Integer progressMissesCount;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal progressPenalty;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal rawScore;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal finalScore;
+
     private String teacherComment;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "grade", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CriterionGradeItemEntity> criterionItems = new ArrayList<>();
 
     @Column(name = "teacher_id", nullable = false)
     private UUID teacherId;

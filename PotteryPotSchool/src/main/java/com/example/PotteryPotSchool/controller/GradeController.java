@@ -1,10 +1,7 @@
 package com.example.PotteryPotSchool.controller;
 
 import com.example.PotteryPotSchool.config.UnauthorizedException;
-import com.example.PotteryPotSchool.dto.Grades.GradeDto;
-import com.example.PotteryPotSchool.dto.Grades.GradeUpsertRequest;
-import com.example.PotteryPotSchool.dto.Grades.SolutionGradeDto;
-import com.example.PotteryPotSchool.dto.Grades.StudentPerformanceDto;
+import com.example.PotteryPotSchool.dto.Grades.*;
 import com.example.PotteryPotSchool.dto.Solutions.MemberGradeDto;
 import com.example.PotteryPotSchool.service.Grades.GradeService;
 import lombok.RequiredArgsConstructor;
@@ -21,51 +18,56 @@ public class GradeController {
 
     @PutMapping("/{solutionId}/grade")
     public SolutionGradeDto upsertGrade(
-            @RequestHeader("Authorization") String authHeader,
             @PathVariable UUID solutionId,
             @RequestBody GradeUpsertRequest request
     ) {
-        String token = extractBearerToken(authHeader);
-        return gradeService.upsertGrade(token, solutionId, request);
+        return gradeService.upsertGrade(solutionId, request);
     }
 
     @GetMapping("/{solutionId}/grade")
     public SolutionGradeDto getGrade(
-            @RequestHeader("Authorization") String authHeader,
             @PathVariable UUID solutionId
     ) {
-        String token = extractBearerToken(authHeader);
-        return gradeService.getGrade(token, solutionId);
+        return gradeService.getGrade(solutionId);
+    }
+
+    @GetMapping("/{solutionId}/criterion-grade")
+    public CriterionGradeResult getCriterionGrade(
+            @PathVariable UUID solutionId
+    ) {
+        return gradeService.getCriterionGrade(solutionId);
+    }
+
+    @PutMapping("/{solutionId}/criterion-grade")
+    public CriterionGradeResult upsertCriterionGrade(
+            @PathVariable UUID solutionId,
+            @RequestBody CriterionGradeUpsertRequest request
+    ) {
+        return gradeService.upsertCriterionGrade(solutionId, request);
     }
 
     @PutMapping("/{solutionId}/members/{studentId}/grade")
     public MemberGradeDto upsertMemberGrade(
-            @RequestHeader("Authorization") String authHeader,
             @PathVariable UUID solutionId,
             @PathVariable UUID studentId,
             @RequestBody GradeUpsertRequest request
     ) {
-        String token = extractBearerToken(authHeader);
-        return gradeService.upsertMemberGrade(token, solutionId, studentId, request);
+        return gradeService.upsertMemberGrade(solutionId, studentId, request);
     }
 
     @GetMapping("/{solutionId}/members/{studentId}/grade")
     public MemberGradeDto getMemberGrade(
-            @RequestHeader("Authorization") String authHeader,
             @PathVariable UUID solutionId,
             @PathVariable UUID studentId
     ) {
-        String token = extractBearerToken(authHeader);
-        return gradeService.getMemberGrade(token, solutionId, studentId);
+        return gradeService.getMemberGrade(solutionId, studentId);
     }
 
     @GetMapping("/students/{studentId}/grades")
     public StudentPerformanceDto getStudentPerformance(
-            @RequestHeader("Authorization") String authHeader,
             @PathVariable UUID studentId
     ) {
-        String token = extractBearerToken(authHeader);
-        return gradeService.getStudentPerformance(token, studentId);
+        return gradeService.getStudentPerformance(studentId);
     }
 
     private String extractBearerToken(String authHeader) {

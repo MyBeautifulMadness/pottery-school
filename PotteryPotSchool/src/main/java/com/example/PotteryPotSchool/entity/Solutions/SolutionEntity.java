@@ -1,5 +1,6 @@
 package com.example.PotteryPotSchool.entity.Solutions;
 
+import com.example.PotteryPotSchool.entity.Grades.SelfAssessmentItemEntity;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionOwnerType;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
@@ -7,6 +8,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -54,4 +57,8 @@ public class SolutionEntity {
     private LocalDateTime submittedAt;
 
     private Integer teamGrade;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "solution", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SelfAssessmentItemEntity> selfAssessmentItems = new ArrayList<>();
 }

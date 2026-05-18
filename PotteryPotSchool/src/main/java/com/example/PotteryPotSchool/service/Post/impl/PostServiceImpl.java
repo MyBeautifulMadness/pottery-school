@@ -3,8 +3,11 @@ package com.example.PotteryPotSchool.service.Post.impl;
 import com.example.PotteryPotSchool.config.BadRequestException;
 import com.example.PotteryPotSchool.config.ForbiddenException;
 import com.example.PotteryPotSchool.config.NotFoundException;
+import com.example.PotteryPotSchool.dto.Criteria.CriterionCreateRequest;
+import com.example.PotteryPotSchool.dto.Criteria.CriterionDto;
 import com.example.PotteryPotSchool.dto.Posts.*;
 import com.example.PotteryPotSchool.dto.Users.User;
+import com.example.PotteryPotSchool.entity.Grades.CriterionEntity;
 import com.example.PotteryPotSchool.entity.Posts.MaterialEntity;
 import com.example.PotteryPotSchool.entity.Posts.PostEntity;
 import com.example.PotteryPotSchool.entity.Posts.TaskEntity;
@@ -28,7 +31,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,6 +49,9 @@ public class PostServiceImpl implements PostService {
     private final GradeRepository gradeRepository;
     private final TeamRepository teamRepository;
     private final SolutionVoteRepository solutionVoteRepository;
+    private final CriterionRepository criterionRepository;
+    private final SelfAssessmentItemRepository selfAssessmentItemRepository;
+    private final CriterionGradeItemRepository criterionGradeItemRepository;
 
     @Override
     @Transactional
@@ -93,12 +102,15 @@ public class PostServiceImpl implements PostService {
 
         PostEntity post = postRepository.findById(postId).orElseThrow(() -> new NotFoundException("Пост не найден: " + postId));
 
+        criterionGradeItemRepository.deleteAllByGrade_Solution_Post_Id(postId);
+        selfAssessmentItemRepository.deleteAllBySolution_Post_Id(postId);
         gradeRepository.deleteAllBySolution_Post_Id(postId);
         solutionRepository.deleteAllByPost_Id(postId);
         commentRepository.deleteAllByPostId(postId);
         if (post.getType() == PostType.TASK && post.getTask() != null) {
             teamRepository.deleteAllByPost_Id(postId);
         }
+        criterionRepository.deleteAllByTask_Post_Id(postId);
 
         postRepository.delete(post);
     }
@@ -299,6 +311,33 @@ public class PostServiceImpl implements PostService {
             task.setMinMembersPerTeam(incomingRules.getMinMembersPerTeam());
             task.setMaxMembersPerTeam(incomingRules.getMaxMembersPerTeam());
         }
+
+        if (taskRequest.getGradingSettings() != null) {
+            applyGradingSettings(task, taskRequest.getGradingSettings());
+        }
+
+        if (taskRequest.getCriteria() != null) {
+            task.getCriteria().clear();
+            taskRequest.getCriteria().forEach(criterionRequest -> task.getCriteria().add(mapToCriterionEntity(criterionRequest, task)));
+        }
+
+        if (Boolean.TRUE.equals(task.getGradingEnabled()) && (task.getCriteria() == null || task.getCriteria().isEmpty())) {
+            throw new BadRequestException("Для оценивания по критериям нужно указать хотя бы один критерий");
+        }
+    }
+
+
+    private void applyGradingSettings(TaskEntity task, TaskGradingSettings settings) {
+        if (settings.getEnabled() != null) task.setGradingEnabled(settings.getEnabled());
+        if (settings.getMaxFinalScore() != null) task.setMaxFinalScore(settings.getMaxFinalScore());
+        if (settings.getSelfAssessmentRequired() != null) task.setSelfAssessmentRequired(settings.getSelfAssessmentRequired());
+        if (settings.getLatePenaltyEnabled() != null) task.setLatePenaltyEnabled(settings.getLatePenaltyEnabled());
+        if (settings.getLatePenaltyPerDay() != null) task.setLatePenaltyPerDay(settings.getLatePenaltyPerDay());
+        if (settings.getProgressPenaltyEnabled() != null) task.setProgressPenaltyEnabled(settings.getProgressPenaltyEnabled());
+        if (settings.getProgressPenaltyPerMiss() != null) task.setProgressPenaltyPerMiss(settings.getProgressPenaltyPerMiss());
+
+        TaskGradingSettings resulting = mapToTaskGradingSettings(task);
+        validateGradingSettingsValues(resulting);
     }
 
     private void validateTaskPatchState(
@@ -474,7 +513,6 @@ public class PostServiceImpl implements PostService {
                     task.getPrioritySolution() != null) {
                 throw new BadRequestException("Для SOLO задания teamDistributionType, teamRules и prioritySolution должны быть null");
             }
-            return;
         }
 
         if (task.getMode() == com.example.PotteryPotSchool.enums.Posts.TaskMode.TEAM) {
@@ -486,6 +524,8 @@ public class PostServiceImpl implements PostService {
             }
             validateTeamRules(task.getTeamRules());
         }
+
+        validateGradingSettings(task.getGradingSettings(), task.getCriteria());
     }
 
     private void validateTeamRules(TeamRules rules) {
@@ -516,8 +556,9 @@ public class PostServiceImpl implements PostService {
 
     private TaskEntity mapToTaskEntity(TaskCreateRequest request, PostEntity post) {
         TeamRules rules = request.getTeamRules();
+        TaskGradingSettings gradingSettings = request.getGradingSettings();
 
-        return TaskEntity.builder()
+        TaskEntity task = TaskEntity.builder()
                 .description(request.getDescription())
                 .deadline(request.getDeadline())
                 .mode(request.getMode())
@@ -529,8 +570,22 @@ public class PostServiceImpl implements PostService {
                 .maxMembersPerTeam(rules != null ? rules.getMaxMembersPerTeam() : null)
                 .prioritySolution(request.getPrioritySolution())
                 .selectedSolutionId(null)
+                .gradingEnabled(gradingSettings != null && Boolean.TRUE.equals(gradingSettings.getEnabled()))
+                .maxFinalScore(gradingSettings != null ? gradingSettings.getMaxFinalScore() : null)
+                .selfAssessmentRequired(gradingSettings != null && Boolean.TRUE.equals(gradingSettings.getSelfAssessmentRequired()))
+                .latePenaltyEnabled(gradingSettings != null && Boolean.TRUE.equals(gradingSettings.getLatePenaltyEnabled()))
+                .latePenaltyPerDay(gradingSettings != null ? gradingSettings.getLatePenaltyPerDay() : null)
+                .progressPenaltyEnabled(gradingSettings != null && Boolean.TRUE.equals(gradingSettings.getProgressPenaltyEnabled()))
+                .progressPenaltyPerMiss(gradingSettings != null ? gradingSettings.getProgressPenaltyPerMiss() : null)
                 .post(post)
                 .build();
+
+        if (request.getCriteria() != null) {
+            task.setCriteria(new ArrayList<>());
+            request.getCriteria().forEach(criterionRequest -> task.getCriteria().add(mapToCriterionEntity(criterionRequest, task)));
+        }
+
+        return task;
     }
 
     private PostDetails mapToPostDetails(PostEntity post) {
@@ -559,6 +614,11 @@ public class PostServiceImpl implements PostService {
             taskDetails.setTeamDistributionType(post.getTask().getTeamDistributionType());
             taskDetails.setPrioritySolution(post.getTask().getPrioritySolution());
             taskDetails.setSelectedSolutionId(resolveSelectedSolutionId(post));
+            taskDetails.setGradingSettings(mapToTaskGradingSettings(post.getTask()));
+            taskDetails.setCriteria(post.getTask().getCriteria() == null ? List.of() : post.getTask().getCriteria().stream()
+                    .sorted(Comparator.comparing(CriterionEntity::getDisplayOrder))
+                    .map(this::mapToCriterionDto)
+                    .toList());
 
             TeamRules rules = new TeamRules();
             rules.setFormationDeadline(post.getTask().getFormationDeadline());
@@ -590,6 +650,102 @@ public class PostServiceImpl implements PostService {
         details.setCreatedAt(post.getCreatedAt());
         details.setUpdatedAt(post.getUpdatedAt());
         return details;
+    }
+
+
+    private CriterionEntity mapToCriterionEntity(CriterionCreateRequest request, TaskEntity task) {
+        validateCriterionRequest(request);
+        return CriterionEntity.builder()
+                .task(task)
+                .title(request.getTitle().trim())
+                .description(request.getDescription())
+                .type(request.getType())
+                .maxScore(request.getMaxScore())
+                .impactType(request.getImpactType())
+                .displayOrder(request.getDisplayOrder())
+                .build();
+    }
+
+    private CriterionDto mapToCriterionDto(CriterionEntity entity) {
+        return CriterionDto.builder()
+                .id(entity.getId())
+                .postId(entity.getTask().getPost().getId())
+                .title(entity.getTitle())
+                .description(entity.getDescription())
+                .type(entity.getType())
+                .maxScore(entity.getMaxScore())
+                .impactType(entity.getImpactType())
+                .displayOrder(entity.getDisplayOrder())
+                .build();
+    }
+
+    private TaskGradingSettings mapToTaskGradingSettings(TaskEntity task) {
+        TaskGradingSettings settings = new TaskGradingSettings();
+        settings.setEnabled(Boolean.TRUE.equals(task.getGradingEnabled()));
+        settings.setMaxFinalScore(task.getMaxFinalScore());
+        settings.setSelfAssessmentRequired(Boolean.TRUE.equals(task.getSelfAssessmentRequired()));
+        settings.setLatePenaltyEnabled(Boolean.TRUE.equals(task.getLatePenaltyEnabled()));
+        settings.setLatePenaltyPerDay(task.getLatePenaltyPerDay());
+        settings.setProgressPenaltyEnabled(Boolean.TRUE.equals(task.getProgressPenaltyEnabled()));
+        settings.setProgressPenaltyPerMiss(task.getProgressPenaltyPerMiss());
+        return settings;
+    }
+
+    private void validateGradingSettingsValues(TaskGradingSettings settings) {
+        if (settings == null || !Boolean.TRUE.equals(settings.getEnabled())) {
+            return;
+        }
+
+        if (settings.getMaxFinalScore() == null
+                || settings.getMaxFinalScore().compareTo(BigDecimal.ZERO) <= 0
+                || settings.getMaxFinalScore().compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new BadRequestException("При оценивании по критериям maxFinalScore должен быть больше 0 и не больше 100");
+        }
+
+        if (Boolean.TRUE.equals(settings.getLatePenaltyEnabled())
+                && (settings.getLatePenaltyPerDay() == null || settings.getLatePenaltyPerDay().compareTo(BigDecimal.ZERO) < 0)) {
+            throw new BadRequestException("latePenaltyPerDay обязателен и не может быть отрицательным");
+        }
+
+        if (Boolean.TRUE.equals(settings.getProgressPenaltyEnabled())
+                && (settings.getProgressPenaltyPerMiss() == null || settings.getProgressPenaltyPerMiss().compareTo(BigDecimal.ZERO) < 0)) {
+            throw new BadRequestException("progressPenaltyPerMiss обязателен и не может быть отрицательным");
+        }
+    }
+
+    private void validateGradingSettings(TaskGradingSettings settings, List<CriterionCreateRequest> criteria) {
+        if (settings == null || !Boolean.TRUE.equals(settings.getEnabled())) {
+            return;
+        }
+
+        validateGradingSettingsValues(settings);
+
+        if (criteria == null || criteria.isEmpty()) {
+            throw new BadRequestException("Для оценивания по критериям нужно указать хотя бы один критерий");
+        }
+
+        criteria.forEach(this::validateCriterionRequest);
+    }
+
+    private void validateCriterionRequest(CriterionCreateRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Критерий не может быть null");
+        }
+        if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
+            throw new BadRequestException("Название критерия обязательно");
+        }
+        if (request.getType() == null) {
+            throw new BadRequestException("Тип критерия обязателен");
+        }
+        if (request.getImpactType() == null) {
+            throw new BadRequestException("Тип влияния критерия обязателен");
+        }
+        if (request.getMaxScore() == null || request.getMaxScore().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BadRequestException("maxScore обязателен и не может быть отрицательным");
+        }
+        if (request.getDisplayOrder() == null || request.getDisplayOrder() < 0) {
+            throw new BadRequestException("displayOrder обязателен и не может быть отрицательным");
+        }
     }
 
     private void autoCreateTeamsIfNeeded(PostEntity post) {

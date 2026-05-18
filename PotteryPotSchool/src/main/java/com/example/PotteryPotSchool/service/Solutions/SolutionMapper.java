@@ -1,5 +1,6 @@
 package com.example.PotteryPotSchool.service.Solutions;
 
+import com.example.PotteryPotSchool.dto.Grades.SelfAssessmentItemDto;
 import com.example.PotteryPotSchool.dto.Solutions.*;
 import com.example.PotteryPotSchool.entity.Grades.GradeEntity;
 import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
@@ -74,6 +75,17 @@ public class SolutionMapper {
                 .authorStudentId(e.getStudentId())
                 .teamGrade(e.getTeamGrade())
                 .votesCount((int) voteRepository.countBySolutionId(e.getId()))
+                .selfAssessment(e.getSelfAssessmentItems() == null ? List.of() : e.getSelfAssessmentItems().stream()
+                        .map(item -> SelfAssessmentItemDto.builder()
+                                .criterionId(item.getCriterion().getId())
+                                .valueType(item.getValueType())
+                                .pointsValue(item.getPointsValue())
+                                .booleanValue(item.getBooleanValue())
+                                .percentValue(item.getPercentValue())
+                                .calculatedScore(item.getCalculatedScore())
+                                .comment(item.getComment())
+                                .build())
+                        .toList())
                 .build();
         dto.setMemberGrades(
                 grades.stream().map(g ->

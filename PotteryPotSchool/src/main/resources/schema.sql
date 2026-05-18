@@ -130,3 +130,78 @@ CREATE TABLE IF NOT EXISTS team_members (
         REFERENCES users(id)
         ON DELETE CASCADE
 );
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS grading_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS max_final_score NUMERIC(10, 2);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS self_assessment_required BOOLEAN DEFAULT FALSE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS late_penalty_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS late_penalty_per_day NUMERIC(10, 2);
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS progress_penalty_enabled BOOLEAN DEFAULT FALSE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS progress_penalty_per_miss NUMERIC(10, 2);
+
+CREATE TABLE IF NOT EXISTS criteria (
+    id UUID PRIMARY KEY,
+    task_id UUID NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(20) NOT NULL,
+    max_score NUMERIC(10, 2) NOT NULL,
+    impact_type VARCHAR(20) NOT NULL,
+    display_order INTEGER NOT NULL,
+    CONSTRAINT fk_criteria_task
+        FOREIGN KEY (task_id)
+        REFERENCES tasks(id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS self_assessment_items (
+    id UUID PRIMARY KEY,
+    solution_id UUID NOT NULL,
+    criterion_id UUID NOT NULL,
+    value_type VARCHAR(20) NOT NULL,
+    points_value NUMERIC(10, 2),
+    boolean_value BOOLEAN,
+    percent_value NUMERIC(5, 2),
+    calculated_score NUMERIC(10, 2),
+    comment TEXT,
+    CONSTRAINT fk_self_assessment_solution
+        FOREIGN KEY (solution_id)
+        REFERENCES solutions(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_self_assessment_criterion
+        FOREIGN KEY (criterion_id)
+        REFERENCES criteria(id)
+        ON DELETE CASCADE,
+    CONSTRAINT uk_self_assessment_solution_criterion UNIQUE (solution_id, criterion_id)
+);
+
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS max_final_score NUMERIC(10, 2);
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS regular_score NUMERIC(10, 2);
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS bonus_score NUMERIC(10, 2);
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS late_days INTEGER;
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS late_penalty NUMERIC(10, 2);
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS progress_misses_count INTEGER;
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS progress_penalty NUMERIC(10, 2);
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS raw_score NUMERIC(10, 2);
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS final_score NUMERIC(10, 2);
+
+CREATE TABLE IF NOT EXISTS criterion_grade_items (
+    id UUID PRIMARY KEY,
+    grade_id UUID NOT NULL,
+    criterion_id UUID NOT NULL,
+    value_type VARCHAR(20) NOT NULL,
+    points_value NUMERIC(10, 2),
+    boolean_value BOOLEAN,
+    percent_value NUMERIC(5, 2),
+    calculated_score NUMERIC(10, 2) NOT NULL,
+    teacher_comment TEXT,
+    CONSTRAINT fk_criterion_grade_item_grade
+        FOREIGN KEY (grade_id)
+        REFERENCES grades(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_criterion_grade_item_criterion
+        FOREIGN KEY (criterion_id)
+        REFERENCES criteria(id)
+        ON DELETE CASCADE,
+    CONSTRAINT uk_criterion_grade_item_grade_criterion UNIQUE (grade_id, criterion_id)
+);

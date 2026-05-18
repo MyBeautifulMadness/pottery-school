@@ -1,23 +1,24 @@
 package com.example.PotteryPotSchool.service.Grades;
 
-import com.example.PotteryPotSchool.dto.Grades.GradeDto;
-import com.example.PotteryPotSchool.dto.Grades.GradeUpsertRequest;
-import com.example.PotteryPotSchool.dto.Grades.SolutionGradeDto;
-import com.example.PotteryPotSchool.dto.Grades.StudentPerformanceDto;
+import com.example.PotteryPotSchool.dto.Grades.*;
 import com.example.PotteryPotSchool.dto.Solutions.MemberGradeDto;
 
 import java.util.UUID;
 
 public interface GradeService {
 
-    SolutionGradeDto upsertGrade(String token, UUID solutionId, GradeUpsertRequest request);
+    SolutionGradeDto upsertGrade(UUID solutionId, GradeUpsertRequest request);
 
-    SolutionGradeDto getGrade(String token, UUID solutionId);
+    SolutionGradeDto getGrade(UUID solutionId);
 
-    MemberGradeDto upsertMemberGrade(String token, UUID solutionId, UUID studentId, GradeUpsertRequest request);
+    MemberGradeDto upsertMemberGrade(UUID solutionId, UUID studentId, GradeUpsertRequest request);
 
-    MemberGradeDto getMemberGrade(String token, UUID solutionId, UUID studentId);
+    MemberGradeDto getMemberGrade(UUID solutionId, UUID studentId);
 
-    StudentPerformanceDto getStudentPerformance(String token, UUID studentId);
+    StudentPerformanceDto getStudentPerformance(UUID studentId);
+
+    CriterionGradeResult upsertCriterionGrade(UUID solutionId, CriterionGradeUpsertRequest request);
+
+    CriterionGradeResult getCriterionGrade(UUID solutionId);
 
 }

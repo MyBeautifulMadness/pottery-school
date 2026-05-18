@@ -4,26 +4,46 @@ import com.example.PotteryPotSchool.config.BadRequestException;
 import com.example.PotteryPotSchool.config.ForbiddenException;
 import com.example.PotteryPotSchool.config.NotFoundException;
 import com.example.PotteryPotSchool.config.UnauthorizedException;
+import com.example.PotteryPotSchool.dto.Criteria.CriterionDto;
 import com.example.PotteryPotSchool.dto.Grades.*;
 import com.example.PotteryPotSchool.dto.Solutions.MemberGradeDto;
+import com.example.PotteryPotSchool.dto.Users.User;
+import com.example.PotteryPotSchool.entity.Grades.CriterionEntity;
+import com.example.PotteryPotSchool.entity.Grades.CriterionGradeItemEntity;
 import com.example.PotteryPotSchool.entity.Grades.GradeEntity;
+import com.example.PotteryPotSchool.entity.Grades.SelfAssessmentItemEntity;
+import com.example.PotteryPotSchool.entity.Posts.TaskEntity;
 import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
 import com.example.PotteryPotSchool.entity.Teams.TeamEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
+import com.example.PotteryPotSchool.enums.Grades.CriterionImpactType;
+import com.example.PotteryPotSchool.enums.Grades.CriterionValueType;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionOwnerType;
 import com.example.PotteryPotSchool.enums.Users.Role;
+import com.example.PotteryPotSchool.repository.CriterionGradeItemRepository;
+import com.example.PotteryPotSchool.repository.CriterionRepository;
 import com.example.PotteryPotSchool.repository.GradeRepository;
+import com.example.PotteryPotSchool.repository.SelfAssessmentItemRepository;
 import com.example.PotteryPotSchool.repository.SolutionRepository;
 import com.example.PotteryPotSchool.repository.TeamRepository;
 import com.example.PotteryPotSchool.security.UserPrincipal;
 import com.example.PotteryPotSchool.service.Grades.GradeService;
 import com.example.PotteryPotSchool.service.Login.JwtService;
+import com.example.PotteryPotSchool.service.Me.MeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,13 +53,15 @@ public class GradeServiceImpl implements GradeService {
     private final SolutionRepository solutionRepository;
     private final JwtService jwtService;
     private final TeamRepository teamRepository;
+    private final CriterionRepository criterionRepository;
+    private final CriterionGradeItemRepository criterionGradeItemRepository;
+    private final SelfAssessmentItemRepository selfAssessmentItemRepository;
+    private final MeService meService;
 
     @Override
-    public SolutionGradeDto upsertGrade(String token, UUID solutionId, GradeUpsertRequest request) {
+    public SolutionGradeDto upsertGrade(UUID solutionId, GradeUpsertRequest request) {
 
-        validateToken(token);
-
-        UserPrincipal user = jwtService.extractUserPrincipal(token);
+        User user = meService.getMe();
 
         if (user.getRole() != Role.TEACHER) {
             throw new ForbiddenException("Только учитель может оценивать участников решения");
@@ -90,11 +112,9 @@ public class GradeServiceImpl implements GradeService {
     }
 
     @Override
-    public SolutionGradeDto getGrade(String token, UUID solutionId) {
+    public SolutionGradeDto getGrade(UUID solutionId) {
 
-        validateToken(token);
-
-        UserPrincipal user = jwtService.extractUserPrincipal(token);
+        User user = meService.getMe();
 
         if (user.getRole() != Role.STUDENT && user.getRole() != Role.TEACHER) {
             throw new ForbiddenException("Access denied");
@@ -118,12 +138,142 @@ public class GradeServiceImpl implements GradeService {
                 .build();
     }
 
+
     @Override
-    public MemberGradeDto upsertMemberGrade(String token, UUID solutionId, UUID studentId, GradeUpsertRequest request) {
+    @Transactional
+    public CriterionGradeResult upsertCriterionGrade(UUID solutionId, CriterionGradeUpsertRequest request) {
+        User user = meService.getMe();
 
-        validateToken(token);
+        if (user.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Только преподаватель может выставлять оценку по критериям");
+        }
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BadRequestException("Список оценок по критериям обязателен");
+        }
 
-        UserPrincipal user = jwtService.extractUserPrincipal(token);
+        SolutionEntity solution = solutionRepository.findById(solutionId)
+                .orElseThrow(() -> new NotFoundException("Решение не найдено"));
+        TaskEntity task = solution.getPost().getTask();
+
+        if (task == null || !Boolean.TRUE.equals(task.getGradingEnabled())) {
+            throw new BadRequestException("Оценивание по критериям для задания не включено");
+        }
+
+        List<CriterionEntity> criteria = criterionRepository.findAllByTask_Post_IdOrderByDisplayOrderAsc(solution.getPost().getId());
+        if (criteria.isEmpty()) {
+            throw new BadRequestException("У задания нет критериев оценивания");
+        }
+
+        Map<UUID, CriterionEntity> criteriaById = criteria.stream()
+                .collect(Collectors.toMap(CriterionEntity::getId, c -> c));
+
+        UUID gradedStudentId = solution.getStudentId();
+        GradeEntity grade = gradeRepository.findBySolution_IdAndStudentId(solutionId, gradedStudentId)
+                .orElseGet(() -> GradeEntity.builder()
+                        .solution(solution)
+                        .studentId(gradedStudentId)
+                        .build());
+
+        grade.getCriterionItems().clear();
+
+        BigDecimal regularScore = BigDecimal.ZERO;
+        BigDecimal bonusScore = BigDecimal.ZERO;
+
+        for (CriterionGradeItemRequest itemRequest : request.getItems()) {
+            if (itemRequest.getCriterionId() == null || itemRequest.getValueType() == null) {
+                throw new BadRequestException("criterionId и valueType обязательны");
+            }
+            CriterionEntity criterion = criteriaById.get(itemRequest.getCriterionId());
+            if (criterion == null) {
+                throw new BadRequestException("Критерий не относится к заданию: " + itemRequest.getCriterionId());
+            }
+            BigDecimal calculatedScore = calculateScore(
+                    criterion,
+                    itemRequest.getValueType(),
+                    itemRequest.getPointsValue(),
+                    itemRequest.getBooleanValue(),
+                    itemRequest.getPercentValue()
+            );
+
+            CriterionGradeItemEntity item = CriterionGradeItemEntity.builder()
+                    .grade(grade)
+                    .criterion(criterion)
+                    .valueType(itemRequest.getValueType())
+                    .pointsValue(itemRequest.getPointsValue())
+                    .booleanValue(itemRequest.getBooleanValue())
+                    .percentValue(itemRequest.getPercentValue())
+                    .calculatedScore(calculatedScore)
+                    .teacherComment(itemRequest.getTeacherComment())
+                    .build();
+            grade.getCriterionItems().add(item);
+
+            if (criterion.getImpactType() == CriterionImpactType.BONUS) {
+                bonusScore = bonusScore.add(calculatedScore);
+            } else {
+                regularScore = regularScore.add(calculatedScore);
+            }
+        }
+
+        Integer lateDays = calculateLateDays(solution, task);
+        BigDecimal latePenalty = Boolean.TRUE.equals(task.getLatePenaltyEnabled())
+                ? safe(task.getLatePenaltyPerDay()).multiply(BigDecimal.valueOf(lateDays))
+                : BigDecimal.ZERO;
+
+        Integer progressMissesCount = Boolean.TRUE.equals(task.getProgressPenaltyEnabled())
+                ? Optional.ofNullable(request.getProgressMissesCount()).orElse(0)
+                : 0;
+        if (progressMissesCount < 0) {
+            throw new BadRequestException("Количество непоказов прогресса не может быть отрицательным");
+        }
+        BigDecimal progressPenalty = Boolean.TRUE.equals(task.getProgressPenaltyEnabled())
+                ? safe(task.getProgressPenaltyPerMiss()).multiply(BigDecimal.valueOf(progressMissesCount))
+                : BigDecimal.ZERO;
+
+        BigDecimal rawScore = regularScore.add(bonusScore).subtract(latePenalty).subtract(progressPenalty);
+        BigDecimal finalScore = rawScore.max(BigDecimal.ZERO).min(safe(task.getMaxFinalScore()));
+
+        grade.setScore(finalScore.setScale(0, RoundingMode.HALF_UP).intValue());
+        grade.setMaxFinalScore(task.getMaxFinalScore());
+        grade.setRegularScore(regularScore);
+        grade.setBonusScore(bonusScore);
+        grade.setLateDays(lateDays);
+        grade.setLatePenalty(latePenalty);
+        grade.setProgressMissesCount(progressMissesCount);
+        grade.setProgressPenalty(progressPenalty);
+        grade.setRawScore(rawScore);
+        grade.setFinalScore(finalScore);
+        grade.setTeacherId(user.getId());
+        grade.setGradedAt(LocalDateTime.now());
+
+        GradeEntity saved = gradeRepository.save(grade);
+        return mapToCriterionGradeResult(saved);
+    }
+
+    @Override
+    public CriterionGradeResult getCriterionGrade( UUID solutionId) {
+        User user = meService.getMe();
+
+        if (user.getRole() != Role.STUDENT && user.getRole() != Role.TEACHER) {
+            throw new ForbiddenException("Доступ запрещен");
+        }
+
+        SolutionEntity solution = solutionRepository.findById(solutionId)
+                .orElseThrow(() -> new NotFoundException("Решение не найдено"));
+
+        if (user.getRole() == Role.STUDENT && !solution.getStudentId().equals(user.getId())) {
+            throw new ForbiddenException("Доступ запрещен");
+        }
+
+        GradeEntity grade = gradeRepository.findBySolution_IdAndStudentId(solutionId, solution.getStudentId())
+                .orElseThrow(() -> new NotFoundException("Оценка по критериям не найдена"));
+
+        return mapToCriterionGradeResult(grade);
+    }
+
+    @Override
+    public MemberGradeDto upsertMemberGrade(UUID solutionId, UUID studentId, GradeUpsertRequest request) {
+
+        User user = meService.getMe();
 
         if (user.getRole() != Role.TEACHER) {
             throw new ForbiddenException("Только учитель может оценивать участников");
@@ -157,11 +307,9 @@ public class GradeServiceImpl implements GradeService {
     }
 
     @Override
-    public MemberGradeDto getMemberGrade(String token, UUID solutionId, UUID studentId) {
+    public MemberGradeDto getMemberGrade(UUID solutionId, UUID studentId) {
 
-        validateToken(token);
-
-        UserPrincipal user = jwtService.extractUserPrincipal(token);
+        User user = meService.getMe();
 
         if (user.getRole() != Role.STUDENT && user.getRole() != Role.TEACHER) {
             throw new ForbiddenException("Доступ запрещен");
@@ -183,9 +331,9 @@ public class GradeServiceImpl implements GradeService {
     }
 
     @Override
-    public StudentPerformanceDto getStudentPerformance(String token, UUID studentId) {
+    public StudentPerformanceDto getStudentPerformance(UUID studentId) {
 
-        validateToken(token);
+        User user = meService.getMe();
 
         List<GradeEntity> grades = gradeRepository.findAllByStudentId(studentId);
 
@@ -252,6 +400,122 @@ public class GradeServiceImpl implements GradeService {
                 .gradedAt(grade.getGradedAt())
                 .teacherId(grade.getTeacherId())
                 .build();
+    }
+
+
+    private CriterionGradeResult mapToCriterionGradeResult(GradeEntity grade) {
+        SolutionEntity solution = grade.getSolution();
+        Map<UUID, SelfAssessmentItemEntity> selfAssessmentByCriterionId = selfAssessmentItemRepository.findAllBySolution_Id(solution.getId())
+                .stream()
+                .collect(Collectors.toMap(item -> item.getCriterion().getId(), item -> item));
+
+        List<CriterionGradeResultItem> items = grade.getCriterionItems().stream()
+                .sorted(Comparator.comparing(item -> item.getCriterion().getDisplayOrder()))
+                .map(item -> CriterionGradeResultItem.builder()
+                        .criterion(mapToCriterionDto(item.getCriterion()))
+                        .selfAssessment(mapToSelfAssessmentDto(selfAssessmentByCriterionId.get(item.getCriterion().getId())))
+                        .teacherAssessment(mapToTeacherAssessmentDto(item))
+                        .build())
+                .toList();
+
+        return CriterionGradeResult.builder()
+                .solutionId(solution.getId())
+                .postId(solution.getPost().getId())
+                .maxFinalScore(grade.getMaxFinalScore())
+                .regularScore(grade.getRegularScore())
+                .bonusScore(grade.getBonusScore())
+                .lateDays(grade.getLateDays())
+                .latePenalty(grade.getLatePenalty())
+                .progressMissesCount(grade.getProgressMissesCount())
+                .progressPenalty(grade.getProgressPenalty())
+                .rawScore(grade.getRawScore())
+                .finalScore(grade.getFinalScore())
+                .gradedAt(grade.getGradedAt())
+                .teacherId(grade.getTeacherId())
+                .items(items)
+                .build();
+    }
+
+    private CriterionDto mapToCriterionDto(CriterionEntity criterion) {
+        return CriterionDto.builder()
+                .id(criterion.getId())
+                .postId(criterion.getTask().getPost().getId())
+                .title(criterion.getTitle())
+                .description(criterion.getDescription())
+                .type(criterion.getType())
+                .maxScore(criterion.getMaxScore())
+                .impactType(criterion.getImpactType())
+                .displayOrder(criterion.getDisplayOrder())
+                .build();
+    }
+
+    private SelfAssessmentItemDto mapToSelfAssessmentDto(SelfAssessmentItemEntity item) {
+        if (item == null) {
+            return null;
+        }
+        return SelfAssessmentItemDto.builder()
+                .criterionId(item.getCriterion().getId())
+                .valueType(item.getValueType())
+                .pointsValue(item.getPointsValue())
+                .booleanValue(item.getBooleanValue())
+                .percentValue(item.getPercentValue())
+                .calculatedScore(item.getCalculatedScore())
+                .comment(item.getComment())
+                .build();
+    }
+
+    private TeacherAssessmentItemDto mapToTeacherAssessmentDto(CriterionGradeItemEntity item) {
+        return TeacherAssessmentItemDto.builder()
+                .criterionId(item.getCriterion().getId())
+                .valueType(item.getValueType())
+                .pointsValue(item.getPointsValue())
+                .booleanValue(item.getBooleanValue())
+                .percentValue(item.getPercentValue())
+                .calculatedScore(item.getCalculatedScore())
+                .teacherComment(item.getTeacherComment())
+                .build();
+    }
+
+    private Integer calculateLateDays(SolutionEntity solution, TaskEntity task) {
+        if (!Boolean.TRUE.equals(task.getLatePenaltyEnabled()) || task.getDeadline() == null || solution.getSubmittedAt() == null) {
+            return 0;
+        }
+        if (!solution.getSubmittedAt().isAfter(task.getDeadline())) {
+            return 0;
+        }
+        long minutes = ChronoUnit.MINUTES.between(task.getDeadline(), solution.getSubmittedAt());
+        return (int) Math.ceil(minutes / (60.0 * 24.0));
+    }
+
+    private BigDecimal calculateScore(CriterionEntity criterion,
+                                      CriterionValueType valueType,
+                                      BigDecimal pointsValue,
+                                      Boolean booleanValue,
+                                      BigDecimal percentValue) {
+        return switch (valueType) {
+            case POINTS -> {
+                if (pointsValue == null || pointsValue.compareTo(BigDecimal.ZERO) < 0 || pointsValue.compareTo(criterion.getMaxScore()) > 0) {
+                    throw new BadRequestException("Баллы должны быть от 0 до максимума критерия");
+                }
+                yield pointsValue;
+            }
+            case YES_NO -> {
+                if (booleanValue == null) {
+                    throw new BadRequestException("Для YES_NO нужно указать booleanValue");
+                }
+                yield Boolean.TRUE.equals(booleanValue) ? criterion.getMaxScore() : BigDecimal.ZERO;
+            }
+            case PERCENT -> {
+                if (percentValue == null || percentValue.compareTo(BigDecimal.ZERO) < 0 || percentValue.compareTo(BigDecimal.valueOf(100)) > 0) {
+                    throw new BadRequestException("Процент должен быть от 0 до 100");
+                }
+                yield criterion.getMaxScore().multiply(percentValue).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            }
+        };
+    }
+
+    private BigDecimal safe(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     private List<UUID> getSolutionMemberIds(SolutionEntity solution) {
