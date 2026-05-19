@@ -322,6 +322,8 @@ public class PostServiceImpl implements PostService {
         if (Boolean.TRUE.equals(task.getGradingEnabled()) && (task.getCriteria() == null || task.getCriteria().isEmpty())) {
             throw new BadRequestException("Для оценивания по критериям нужно указать хотя бы один критерий");
         }
+
+        validateUpdateRegularCriteriaScoreSum(task);
     }
 
 
@@ -800,6 +802,35 @@ public class PostServiceImpl implements PostService {
                 : criteria.stream()
                 .filter(criterion -> criterion.getImpactType() == CriterionImpactType.REGULAR)
                 .map(CriterionCreateRequest::getMaxScore)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (regularCriteriaSum.compareTo(maxFinalScore) != 0) {
+            throw new BadRequestException(
+                    "Ошибка создания задания: Сумма оценок всех критериев должна равняться: "
+                            + maxFinalScore
+                            + ". Сейчас сумма обязательных критериев равняется: "
+                            + regularCriteriaSum
+            );
+        }
+    }
+
+    private void validateUpdateRegularCriteriaScoreSum(TaskEntity task) {
+        if (!Boolean.TRUE.equals(task.getGradingEnabled())) {
+            return;
+        }
+
+        BigDecimal maxFinalScore = task.getMaxFinalScore();
+
+        if (maxFinalScore == null) {
+            return;
+        }
+
+        BigDecimal regularCriteriaSum = task.getCriteria() == null
+                ? BigDecimal.ZERO
+                : task.getCriteria().stream()
+                .filter(criterion -> criterion.getImpactType() == CriterionImpactType.REGULAR)
+                .map(CriterionEntity::getMaxScore)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
