@@ -174,7 +174,12 @@ public class GradeServiceImpl implements GradeService {
                         .studentId(gradedStudentId)
                         .build());
 
-        grade.getCriterionItems().clear();
+        Map<UUID, CriterionGradeItemEntity> existingItems =
+                grade.getCriterionItems().stream()
+                        .collect(Collectors.toMap(
+                                item -> item.getCriterion().getId(),
+                                item -> item
+                        ));
 
         BigDecimal regularScore = BigDecimal.ZERO;
         BigDecimal bonusScore = BigDecimal.ZERO;
@@ -195,17 +200,22 @@ public class GradeServiceImpl implements GradeService {
                     itemRequest.getPercentValue()
             );
 
-            CriterionGradeItemEntity item = CriterionGradeItemEntity.builder()
-                    .grade(grade)
-                    .criterion(criterion)
-                    .valueType(itemRequest.getValueType())
-                    .pointsValue(itemRequest.getPointsValue())
-                    .booleanValue(itemRequest.getBooleanValue())
-                    .percentValue(itemRequest.getPercentValue())
-                    .calculatedScore(calculatedScore)
-                    .teacherComment(itemRequest.getTeacherComment())
-                    .build();
-            grade.getCriterionItems().add(item);
+            CriterionGradeItemEntity item = existingItems.get(criterion.getId());
+
+            if (item == null) {
+                item = new CriterionGradeItemEntity();
+                item.setGrade(grade);
+                item.setCriterion(criterion);
+
+                grade.getCriterionItems().add(item);
+            }
+
+            item.setValueType(itemRequest.getValueType());
+            item.setPointsValue(itemRequest.getPointsValue());
+            item.setBooleanValue(itemRequest.getBooleanValue());
+            item.setPercentValue(itemRequest.getPercentValue());
+            item.setCalculatedScore(calculatedScore);
+            item.setTeacherComment(itemRequest.getTeacherComment());
 
             if (criterion.getImpactType() == CriterionImpactType.BONUS) {
                 bonusScore = bonusScore.add(calculatedScore);

@@ -14,6 +14,7 @@ import com.example.PotteryPotSchool.entity.Posts.TaskEntity;
 import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
 import com.example.PotteryPotSchool.entity.Solutions.SolutionVote;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
+import com.example.PotteryPotSchool.enums.Grades.CriterionImpactType;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
 import com.example.PotteryPotSchool.enums.Posts.PrioritySolution;
 import com.example.PotteryPotSchool.enums.Posts.TeamDistributionType;
@@ -33,10 +34,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -526,6 +524,7 @@ public class PostServiceImpl implements PostService {
         }
 
         validateGradingSettings(task.getGradingSettings(), task.getCriteria());
+        validateRegularCriteriaScoreSum(task.getGradingSettings(), task.getCriteria());
     }
 
     private void validateTeamRules(TeamRules rules) {
@@ -780,6 +779,37 @@ public class PostServiceImpl implements PostService {
                     .build();
 
             teamRepository.save(team);
+        }
+    }
+
+
+    private void validateRegularCriteriaScoreSum(TaskGradingSettings gradingSettings, List<CriterionCreateRequest> criteria) {
+
+        if (gradingSettings == null || !Boolean.TRUE.equals(gradingSettings.getEnabled())) {
+            return;
+        }
+
+        BigDecimal maxFinalScore = gradingSettings.getMaxFinalScore();
+
+        if (maxFinalScore == null) {
+            return;
+        }
+
+        BigDecimal regularCriteriaSum = criteria == null
+                ? BigDecimal.ZERO
+                : criteria.stream()
+                .filter(criterion -> criterion.getImpactType() == CriterionImpactType.REGULAR)
+                .map(CriterionCreateRequest::getMaxScore)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (regularCriteriaSum.compareTo(maxFinalScore) != 0) {
+            throw new BadRequestException(
+                    "Ошибка создания задания: Сумма оценок всех критериев должна равняться: "
+                            + maxFinalScore
+                            + ". Сейчас сумма обязательных критериев равняется: "
+                            + regularCriteriaSum
+            );
         }
     }
 }
