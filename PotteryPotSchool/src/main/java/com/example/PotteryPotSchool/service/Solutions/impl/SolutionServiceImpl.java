@@ -214,6 +214,9 @@ public class SolutionServiceImpl implements SolutionService {
 
         apply(solution, request);
         if (request.getSelfAssessment() != null) {
+            selfAssessmentItemRepository.deleteBySolution_Id(solution.getId());
+            selfAssessmentItemRepository.flush();
+
             applySelfAssessment(solution, solution.getPost().getTask(), request.getSelfAssessment());
         }
         solution.setUpdatedAt(LocalDateTime.now());

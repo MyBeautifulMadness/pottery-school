@@ -10,4 +10,5 @@ public interface SelfAssessmentItemRepository extends JpaRepository<SelfAssessme
     List<SelfAssessmentItemEntity> findAllBySolution_Id(UUID solutionId);
     void deleteAllBySolution_Id(UUID solutionId);
     void deleteAllBySolution_Post_Id(UUID postId);
+    void deleteBySolution_Id(UUID solutionId);
 }
