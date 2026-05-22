@@ -59,6 +59,7 @@ public class GradeServiceImpl implements GradeService {
     private final MeService meService;
 
     @Override
+    @Transactional
     public SolutionGradeDto upsertGrade(UUID solutionId, GradeUpsertRequest request) {
 
         User user = meService.getMe();
@@ -67,10 +68,21 @@ public class GradeServiceImpl implements GradeService {
             throw new ForbiddenException("Только учитель может оценивать участников решения");
         }
 
-        validateGradeRequest(request);
+        if (request == null || request.getScore() == null) {
+            throw new BadRequestException("Оценка обязательна");
+        }
 
         SolutionEntity solution = solutionRepository.findById(solutionId)
                 .orElseThrow(() -> new NotFoundException("Решение не найдено"));
+
+        TaskEntity task = solution.getPost().getTask();
+        boolean criterionGradingEnabled = task != null && Boolean.TRUE.equals(task.getGradingEnabled());
+
+        if (criterionGradingEnabled) {
+            validateManualFinalScoreForCriterionGrade(request, task);
+        } else {
+            validateSimpleGradeRequest(request);
+        }
 
         List<UUID> memberIds = getSolutionMemberIds(solution);
 
@@ -79,6 +91,7 @@ public class GradeServiceImpl implements GradeService {
         }
 
         LocalDateTime now = LocalDateTime.now();
+        BigDecimal manualFinalScore = BigDecimal.valueOf(request.getScore());
 
         solution.setTeamGrade(request.getScore());
         solutionRepository.save(solution);
@@ -96,6 +109,12 @@ public class GradeServiceImpl implements GradeService {
                     grade.setTeacherId(user.getId());
                     grade.setGradedAt(now);
 
+                    if (criterionGradingEnabled) {
+                        grade.setMaxFinalScore(task.getMaxFinalScore());
+                        grade.setFinalScore(manualFinalScore);
+                        grade.setRawScore(manualFinalScore);
+                    }
+
                     return grade;
                 })
                 .toList();
@@ -109,6 +128,37 @@ public class GradeServiceImpl implements GradeService {
                         .map(this::mapToStudentGradeDto)
                         .toList())
                 .build();
+    }
+
+    private void validateSimpleGradeRequest(GradeUpsertRequest request) {
+        if (request == null) {
+            throw new BadRequestException("123");
+        }
+    }
+
+    private void validateManualFinalScoreForCriterionGrade(GradeUpsertRequest request, TaskEntity task) {
+        if (request == null) {
+            throw new BadRequestException("Введите данные к запросу");
+        }
+
+        if (request.getScore() == null) {
+            throw new BadRequestException("Итоговая оценка обязательна");
+        }
+
+        BigDecimal score = BigDecimal.valueOf(request.getScore());
+        BigDecimal maxFinalScore = safe(task.getMaxFinalScore());
+
+        if (score.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BadRequestException("Итоговая оценка не может быть меньше 0");
+        }
+
+        if (maxFinalScore.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("У задания некорректная максимальная итоговая оценка");
+        }
+
+        if (score.compareTo(maxFinalScore) > 0) {
+            throw new BadRequestException("Итоговая оценка не может быть больше maxFinalScore");
+        }
     }
 
     @Override
