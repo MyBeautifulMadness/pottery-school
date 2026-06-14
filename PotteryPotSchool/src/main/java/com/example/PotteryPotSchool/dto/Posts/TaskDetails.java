@@ -29,4 +29,5 @@ public class TaskDetails {
 
     private TaskGradingSettings gradingSettings;
     private List<CriterionDto> criteria;
+    private TaskReviewSettings reviewSettings;
 }

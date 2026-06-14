@@ -17,6 +17,7 @@ import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
 import com.example.PotteryPotSchool.entity.Teams.TeamEntity;
 import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Grades.CriterionImpactType;
+import com.example.PotteryPotSchool.enums.Grades.GradeSource;
 import com.example.PotteryPotSchool.enums.Grades.CriterionValueType;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionOwnerType;
 import com.example.PotteryPotSchool.enums.Users.Role;
@@ -26,7 +27,6 @@ import com.example.PotteryPotSchool.repository.GradeRepository;
 import com.example.PotteryPotSchool.repository.SelfAssessmentItemRepository;
 import com.example.PotteryPotSchool.repository.SolutionRepository;
 import com.example.PotteryPotSchool.repository.TeamRepository;
-import com.example.PotteryPotSchool.security.UserPrincipal;
 import com.example.PotteryPotSchool.service.Grades.GradeService;
 import com.example.PotteryPotSchool.service.Login.JwtService;
 import com.example.PotteryPotSchool.service.Me.MeService;
@@ -107,6 +107,7 @@ public class GradeServiceImpl implements GradeService {
                     grade.setScore(request.getScore());
                     grade.setTeacherComment(request.getTeacherComment());
                     grade.setTeacherId(user.getId());
+                    grade.setSource(GradeSource.TEACHER);
                     grade.setGradedAt(now);
 
                     if (criterionGradingEnabled) {
@@ -303,6 +304,7 @@ public class GradeServiceImpl implements GradeService {
         grade.setRawScore(rawScore);
         grade.setFinalScore(finalScore);
         grade.setTeacherId(user.getId());
+        grade.setSource(GradeSource.TEACHER);
         grade.setGradedAt(LocalDateTime.now());
 
         GradeEntity saved = gradeRepository.save(grade);
@@ -359,6 +361,7 @@ public class GradeServiceImpl implements GradeService {
         grade.setScore(request.getScore());
         grade.setTeacherComment(request.getTeacherComment());
         grade.setTeacherId(user.getId());
+        grade.setSource(GradeSource.TEACHER);
         grade.setGradedAt(LocalDateTime.now());
 
         GradeEntity savedGrade = gradeRepository.save(grade);
@@ -438,6 +441,9 @@ public class GradeServiceImpl implements GradeService {
                 .teacherComment(grade.getTeacherComment())
                 .gradedAt(grade.getGradedAt())
                 .teacherId(grade.getTeacherId())
+                .source(grade.getSource())
+                .peerAverageScore(grade.getPeerAverageScore())
+                .peerReviewsCount(grade.getPeerReviewsCount())
                 .build();
     }
 

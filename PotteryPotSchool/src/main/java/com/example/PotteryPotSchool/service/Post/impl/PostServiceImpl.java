@@ -17,6 +17,7 @@ import com.example.PotteryPotSchool.entity.Users.UserEntity;
 import com.example.PotteryPotSchool.enums.Grades.CriterionImpactType;
 import com.example.PotteryPotSchool.enums.Posts.PostType;
 import com.example.PotteryPotSchool.enums.Posts.PrioritySolution;
+import com.example.PotteryPotSchool.enums.Posts.ReviewType;
 import com.example.PotteryPotSchool.enums.Posts.TeamDistributionType;
 import com.example.PotteryPotSchool.enums.Solutions.SolutionStatus;
 import com.example.PotteryPotSchool.enums.Users.Role;
@@ -50,6 +51,7 @@ public class PostServiceImpl implements PostService {
     private final CriterionRepository criterionRepository;
     private final SelfAssessmentItemRepository selfAssessmentItemRepository;
     private final CriterionGradeItemRepository criterionGradeItemRepository;
+    private final PeerReviewRepository peerReviewRepository;
 
     @Override
     @Transactional
@@ -103,6 +105,7 @@ public class PostServiceImpl implements PostService {
         criterionGradeItemRepository.deleteAllByGrade_Solution_Post_Id(postId);
         selfAssessmentItemRepository.deleteAllBySolution_Post_Id(postId);
         gradeRepository.deleteAllBySolution_Post_Id(postId);
+        peerReviewRepository.deleteAllByPostId(postId);
         solutionRepository.deleteAllByPost_Id(postId);
         commentRepository.deleteAllByPostId(postId);
         if (post.getType() == PostType.TASK && post.getTask() != null) {
@@ -314,6 +317,10 @@ public class PostServiceImpl implements PostService {
             applyGradingSettings(task, taskRequest.getGradingSettings());
         }
 
+        if (taskRequest.getReviewSettings() != null) {
+            applyReviewSettings(task, taskRequest.getReviewSettings());
+        }
+
         if (taskRequest.getCriteria() != null) {
             task.getCriteria().clear();
             taskRequest.getCriteria().forEach(criterionRequest -> task.getCriteria().add(mapToCriterionEntity(criterionRequest, task)));
@@ -338,6 +345,30 @@ public class PostServiceImpl implements PostService {
 
         TaskGradingSettings resulting = mapToTaskGradingSettings(task);
         validateGradingSettingsValues(resulting);
+    }
+
+    private void applyReviewSettings(TaskEntity task, TaskReviewSettings settings) {
+        ReviewType type = settings.getReviewType() != null ? settings.getReviewType() : task.getReviewType();
+        validateReviewSettings(type, settings.getReviewsPerStudent(), settings.getReviewDeadline());
+        task.setReviewType(type);
+        if (type == ReviewType.PEER_TO_PEER) {
+            task.setReviewsPerStudent(settings.getReviewsPerStudent());
+            task.setReviewDeadline(settings.getReviewDeadline());
+        } else {
+            task.setReviewsPerStudent(null);
+            task.setReviewDeadline(null);
+        }
+    }
+
+    private void validateReviewSettings(ReviewType type, Integer reviewsPerStudent, LocalDateTime reviewDeadline) {
+        if (type == ReviewType.PEER_TO_PEER) {
+            if (reviewsPerStudent == null || reviewsPerStudent < 1) {
+                throw new BadRequestException("Для peer-to-peer проверки укажите количество работ для проверки (>= 1)");
+            }
+            if (reviewDeadline == null) {
+                throw new BadRequestException("Для peer-to-peer проверки укажите дедлайн проверки");
+            }
+        }
     }
 
     private void validateTaskPatchState(
@@ -527,6 +558,13 @@ public class PostServiceImpl implements PostService {
 
         validateGradingSettings(task.getGradingSettings(), task.getCriteria());
         validateRegularCriteriaScoreSum(task.getGradingSettings(), task.getCriteria());
+
+        if (task.getReviewSettings() != null && task.getReviewSettings().getReviewType() != null) {
+            validateReviewSettings(
+                    task.getReviewSettings().getReviewType(),
+                    task.getReviewSettings().getReviewsPerStudent(),
+                    task.getReviewSettings().getReviewDeadline());
+        }
     }
 
     private void validateTeamRules(TeamRules rules) {
@@ -578,6 +616,10 @@ public class PostServiceImpl implements PostService {
                 .latePenaltyPerDay(gradingSettings != null ? gradingSettings.getLatePenaltyPerDay() : null)
                 .progressPenaltyEnabled(gradingSettings != null && Boolean.TRUE.equals(gradingSettings.getProgressPenaltyEnabled()))
                 .progressPenaltyPerMiss(gradingSettings != null ? gradingSettings.getProgressPenaltyPerMiss() : null)
+                .reviewType(request.getReviewSettings() != null && request.getReviewSettings().getReviewType() != null
+                        ? request.getReviewSettings().getReviewType() : ReviewType.NORMAL)
+                .reviewsPerStudent(request.getReviewSettings() != null ? request.getReviewSettings().getReviewsPerStudent() : null)
+                .reviewDeadline(request.getReviewSettings() != null ? request.getReviewSettings().getReviewDeadline() : null)
                 .post(post)
                 .build();
 
@@ -616,6 +658,11 @@ public class PostServiceImpl implements PostService {
             taskDetails.setPrioritySolution(post.getTask().getPrioritySolution());
             taskDetails.setSelectedSolutionId(resolveSelectedSolutionId(post));
             taskDetails.setGradingSettings(mapToTaskGradingSettings(post.getTask()));
+            TaskReviewSettings reviewSettings = new TaskReviewSettings();
+            reviewSettings.setReviewType(post.getTask().getReviewType());
+            reviewSettings.setReviewsPerStudent(post.getTask().getReviewsPerStudent());
+            reviewSettings.setReviewDeadline(post.getTask().getReviewDeadline());
+            taskDetails.setReviewSettings(reviewSettings);
             taskDetails.setCriteria(post.getTask().getCriteria() == null ? List.of() : post.getTask().getCriteria().stream()
                     .sorted(Comparator.comparing(CriterionEntity::getDisplayOrder))
                     .map(this::mapToCriterionDto)

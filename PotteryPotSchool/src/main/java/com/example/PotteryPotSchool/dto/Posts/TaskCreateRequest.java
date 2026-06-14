@@ -26,4 +26,7 @@ public class TaskCreateRequest {
     private PrioritySolution prioritySolution;
     private TaskGradingSettings gradingSettings;
     private List<CriterionCreateRequest> criteria;
+
+    @Schema(nullable = true)
+    private TaskReviewSettings reviewSettings;
 }

@@ -2,6 +2,7 @@ package com.example.PotteryPotSchool.entity.Posts;
 
 import com.example.PotteryPotSchool.entity.Grades.CriterionEntity;
 import com.example.PotteryPotSchool.enums.Posts.PrioritySolution;
+import com.example.PotteryPotSchool.enums.Posts.ReviewType;
 import com.example.PotteryPotSchool.enums.Posts.TaskMode;
 import com.example.PotteryPotSchool.enums.Posts.TeamDistributionType;
 import jakarta.persistence.*;
@@ -73,6 +74,16 @@ public class TaskEntity {
 
     @Column(precision = 10, scale = 2)
     private BigDecimal progressPenaltyPerMiss;
+
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    @Column(nullable = false)
+    private ReviewType reviewType = ReviewType.NORMAL;
+
+    private Integer reviewsPerStudent;
+
+    private LocalDateTime reviewDeadline;
 
     @Builder.Default
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)

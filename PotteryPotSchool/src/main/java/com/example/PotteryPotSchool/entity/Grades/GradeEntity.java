@@ -1,6 +1,7 @@
 package com.example.PotteryPotSchool.entity.Grades;
 
 import com.example.PotteryPotSchool.entity.Solutions.SolutionEntity;
+import com.example.PotteryPotSchool.enums.Grades.GradeSource;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -67,7 +68,17 @@ public class GradeEntity {
     @OneToMany(mappedBy = "grade", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CriterionGradeItemEntity> criterionItems = new ArrayList<>();
 
-    @Column(name = "teacher_id", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    @Column(name = "grade_source", nullable = false)
+    private GradeSource source = GradeSource.TEACHER;
+
+    private Integer peerReviewsCount;
+
+    @Column(name = "peer_average_score", precision = 10, scale = 2)
+    private BigDecimal peerAverageScore;
+
+    @Column(name = "teacher_id")
     private UUID teacherId;
 
     @Column(name = "graded_at", nullable = false)

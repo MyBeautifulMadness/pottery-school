@@ -19,4 +19,5 @@ public class TaskUpdateRequest {
     private PrioritySolution prioritySolution;
     private TaskGradingSettings gradingSettings;
     private List<CriterionCreateRequest> criteria;
+    private TaskReviewSettings reviewSettings;
 }
